@@ -1,0 +1,10 @@
+#!/usr/bin/env node --harmony
+require("repl").start({useGlobal:true});
+
+require("../vendor/closure-library/closure/goog/bootstrap/nodejs.js");
+require("../vendor/closure-library/closure/goog/wonderscript_deps.js");
+
+goog.require("wonderscript");
+
+global.ws = wonderscript;
+global.t = wonderscript.types;
