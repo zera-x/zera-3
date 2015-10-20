@@ -1,0 +1,29 @@
+#!/usr/bin/env node --harmony
+//require("repl").start({useGlobal:true});
+
+var readline = require('readline')
+  , wonderscript = require('../dist/wonderscript.js');
+
+var rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout,
+  terminal: true
+});
+
+rl.setPrompt("ws> ");
+rl.prompt();
+
+rl.on('line', function(code) {
+  try {
+    var code = wonderscript.emit(wonderscript.edn.read(code.trim()));
+    //console.log(code);
+    var res = eval(code);
+    console.log(""+res);
+  }
+  catch (e) {
+    console.error(e);
+  }
+  rl.prompt();
+});
+
+//rl.close();

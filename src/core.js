@@ -18,15 +18,18 @@
 goog.provide('wonderscript');
 goog.provide('wonderscript.helpers');
 goog.require('wonderscript.types');
+goog.require('wonderscript.edn');
 
-if ( module && module.exports ) {
+if ( typeof module !== 'undefined' && module.exports ) {
   module.exports = wonderscript;
 }
 
 goog.scope(function() {
   
   var ws = wonderscript;
+  var t = ws.types;
   var h = ws.helpers;
+  var end = ws.edn;
   
   // Symbol -> Symbol
   ws.name = function(sym) {
@@ -111,6 +114,7 @@ goog.scope(function() {
     }
   };
 
+  // Array -> Array
   ws.pair = function(a) {
     var i, pairs = [], pair = [];
     for (i = 0; i < a.length; ++i) {
@@ -126,6 +130,7 @@ goog.scope(function() {
     return pairs;
   };
 
+  // Array -> Function -> Array
   ws.map = function(a, fn) {
     var newA = [], i;
     for (i = 0; i < a.length; ++i) {
@@ -134,6 +139,7 @@ goog.scope(function() {
     return newA;
   };
   
+  // Array -> Function -> Array
   ws.mapcat = function(a, fn) {
     var a = ws.map(a, fn)
       , newA = []
@@ -144,6 +150,7 @@ goog.scope(function() {
     return newA;
   };
 
+  // Array -> Function -> Array
   ws.filter = function(a, fn) {
     var i, newA = [];
     for (i = 0; i < a.length; ++i) {
@@ -152,6 +159,8 @@ goog.scope(function() {
     return newA;
   };
 
+  // Array -> Function -> JsValue
+  // Array -> Function -> JsValue -> JsValue
   ws.reduce = function(a, fn, memo) {
     var i;
     for (i = 0; i < a.length; ++i) {
@@ -161,18 +170,21 @@ goog.scope(function() {
     return memo;
   };
 
+  // Array -> JsValue
   ws.min = function(a) {
     return ws.reduce(a, function(memo, n) {
       return memo < n ? memo : n;
     });
   };
 
+  // Array -> JsValue
   ws.max = function(a) {
     return ws.reduce(a, function(memo, n) {
       return memo > n ? memo : n;
     });
   };
 
+  // Object -> String -> JsValue -> Object
   ws.assoc = function(obj, key, value) {
     var newObj = {}, k;
     for (k in obj) {
@@ -186,6 +198,7 @@ goog.scope(function() {
     return ws.compileFromAst(ws.readFromJs(form), {}, {skipAnalysis: true});
   };
 
+  // Object -> Object
   ws.merge = function(o1, o2) {
     var o = {}, k;
     for ( k in o1 ) o[k] = o1[k];
@@ -193,10 +206,12 @@ goog.scope(function() {
     return o;
   };
 
+  // Array -> Function -> Boolean
   ws.any = function(a, fn) {
     return ws.filter(a, fn).length !== 0;
   };
 
+  // Array -> Array
   ws.uniq = function(a) {
     var set = ws.reduce(a, function(memo, n) {
       var o = {};
@@ -215,97 +230,124 @@ goog.scope(function() {
   // API
   // ===
   
-  var SYMBOL_STACK = [];
-  
+  Array.prototype.apply = function(that, args) {
+    var args = args || [];
+    return this[args[0]];
+  };
+
+  ws.read = ws.edn.read;
+
+  // JsValue -> JsValue
   ws.eval = function(form) {
     return eval(ws.emit(form));
   };
 
+  // Function -> Array -> JsValue
   ws.apply = function(fn, args) {
     if ( fn.apply ) return fn.apply(null, args);
-    else return fn[args[1]];
+    else throw new Error(ws.str("'", fn, "' is not a function"));
   };
 
+  // JsValue -> String
   ws.emit = function(form) {
     var value, i, key, env = env || ws, opts = opts || {};
     if ( typeof form === 'string' ) {
       if ( /^(:|'|`)/.test(form) ) return JSON.stringify(form.replace(/^(:|'|`)/, ''));
-      else if ( form === 'on' || form === 'yes' ) return 'true';
-      else if ( form === 'off' || form === 'no' ) return 'false';
+      else if ( /^".*"$/.test(form) ) return form;
+      else if ( form === 'on' || form === 'yes' || form === 'true' ) return 'true';
+      else if ( form === 'off' || form === 'no' || form === 'false' ) return 'false';
+      // fractions
       else if ( /^\d+\/\d+$/.test(form) ) {
         var res = /^(\d+)\/(\d+)/.exec(form);
-        return new t.Rat(1*res[1], 1*res[2]);
+        return new ws.Rat(1*res[1], 1*res[2]);
+      }
+      // percentages
+      else if ( /^([\d\.]+)%$/.test(form) ) {
+        var res = /^([\d\.]+)%$/.exec(form);
+        return new ws.Rat(1*res[1], 100);
       }
       else if ( ws[form] ) return ws.str('wonderscript["', form, '"]');
       return form;
     }
+    else if ( typeof form === 'boolean' ) return form;
+    else if ( form === null ) return 'null';
+    else if ( typeof form === 'undefined' ) return 'undefined';
     else if ( form instanceof Date ) return ws.str('new Date(', form.valueOf(), ')');
+    else if ( form instanceof RegExp ) {
+      var flags = [];
+      if ( form.ignoreCase ) flags.push('i');
+      if ( form.global ) flags.push('g');
+      if ( form.multiline ) flags.push('m');
+      return ws.str('/', form.source, '/', flags.join(''));
+    }
     else if ( form instanceof Array ) {
-      if ( typeof form[0] === 'string' ) {
-        switch(form[0]) {
-          case 'if':
-            return emitIf(form, env, opts);
-          case 'cond':
-            return emitCond(form, env, opts);
-          // existential
-          case '?':
-            return emitExistential(form, env, opts);
-          case 'null?':
-            return emitNullTest(form, env, opts);
-          case 'primitive?':
-            // TODO
-          case 'object?':
-            // TODO
-          case 'var':
-          case 'def':
-            return emitDef(form, env, opts);
-          case 'function':
-          case 'fn':
-            return emitFunc(form, env, opts);
-          case 'loop':
-            // TODO
-          case 'again':
-            // TODO
-          case 'throw':
-            // TODO
-          case 'try':
-            // TODO
-          case 'catch':
-          case 'do':
-            return emitDo(form, env, opts);
-          // object property resolution
-          case '.-':
-            return emitObjectRes(form);
-          // object method call
-          case '.':
-            return emitMethodCall(form);
-          case 'new':
-            return emitClassInit(form);
-          case 'set!':
-            return emitAssignment(form);
-          // binary operators
-          // TODO: get a complete list of JavaScript's binary operators
-          // TODO: add urnary operators also
-          /*case '+':
-          case '-':
-          case '/':
-          case '*':*/
-          case '&':
-          case '|':
-          case '&&':
-          case '||':
-          case '==':
-          case '===':
-            return emitBinOperator(form, env, opts);
-          case 'quote':
-            return JSON.stringify(form[1]);
-          case 'comment':
-            return null;
-          default:
-            return emitFuncApplication(form, env, opts);
-        }
+      switch(form[0]) {
+        case 'if':
+          return emitIf(form, env, opts);
+        case 'cond':
+          return emitCond(form, env, opts);
+        case '?':
+          return emitExistential(form, env, opts);
+        case 'null?':
+          return emitNullTest(form, env, opts);
+        case 'instance?':
+          return ws.str(ws.emit(form[1]), ' instanceof ', ws.emit(form[2]));
+        case 'type':
+          return ws.str('typeof ', ws.emit(form[1]));
+        case 'js':
+          return form[1];
+        case 'var':
+        case 'def':
+          return emitDef(form, env, opts);
+        case 'function':
+        case 'fn':
+          return emitFunc(form, env, opts);
+        case 'loop':
+          // TODO
+        case 'again':
+          // TODO
+        case 'throw':
+          // TODO
+        case 'try':
+          // TODO
+        case 'catch':
+          // TODO
+        case 'do':
+          return emitDo(form, env, opts);
+        // object property resolution
+        case '.-':
+          return emitObjectRes(form);
+        // object method call
+        case '.':
+          return emitMethodCall(form);
+        case 'new':
+          return emitClassInit(form);
+        case 'set!':
+          return emitAssignment(form);
+        // binary operators
+        // TODO: get a complete list of JavaScript's binary operators
+        // TODO: add urnary operators also
+        case '+':
+        case '-':
+        case '/':
+        case '*':
+        case '&':
+        case '|':
+        case '<<':
+        case '&&':
+        case '||':
+        case '==':
+        case '!=':
+        case '===':
+        case '!==':
+          return emitBinOperator(form, env, opts);
+        case 'quote':
+          return JSON.stringify(form[1]);
+        case 'comment':
+          return null;
+        default:
+          return emitFuncApplication(form, env, opts);
       }
-      return JSON.stringify(form);
     }
     else if ( typeof form === 'object' && form.toSource ) return form.toSource();
     else if ( typeof form[0] === 'object' ) {
@@ -332,7 +374,18 @@ goog.scope(function() {
   }
 
   function emitCond(form) {
-    
+    var exprs = ws.pair(form.slice(1))
+      , i
+      , cond
+      , buff = [];
+    for (i = 0; i < exprs.length; ++i) {
+      cond = i === 0 ? 'if' : 'else if';
+      if ( exprs[i][0] === 'else' )
+        buff.push(ws.str('else { return ', ws.emit(exprs[i][1]), ' }')); 
+      else
+        buff.push(ws.str(cond, '(', ws.emit(exprs[i][0]), '){ return ', ws.emit(exprs[i][1]), ' }')); 
+    }
+    return ws.str('(function(){ ', buff.join(' '), '}())');
   }
   
   function symbolize(val) {
@@ -451,7 +504,7 @@ goog.scope(function() {
   function emitObjectRes(form) {
     var obj = form[1]
       , prop = form[2]
-    return ws.str(obj, '.', prop);
+    return ws.str('(', ws.emit(obj), ').', prop);
   }
 
   function emitMethodCall(form) {
@@ -459,7 +512,8 @@ goog.scope(function() {
   }
 
   function emitClassInit(form) {
-    return emitFuncApplication([ws.str('new ', form[1])].concat(form.slice(2)));
+    var args = ws.map(form.slice(2), function(arg){ return ws.emit(arg) }).join(', ');
+    return ws.str('new ', ws.emit(form[1]), '(', args, ')');
   }
   
   function emitFuncApplication(form, env, opts) {
@@ -472,12 +526,10 @@ goog.scope(function() {
       argBuffer.push(value);
     }
   
-    //if ( typeof form[0] === 'object' ) return ws.str('(', fn, ")[", argBuffer.join(''), "]");
-  
     if ( argBuffer.length === 0 ) {
-      return ws.str('wonderscript.apply(', fn, ")");
+      return ws.str('(', fn, ').apply()');
     }
-    return ws.str('wonderscript.apply(', fn, ", [", argBuffer.join(', ') ,"])");
+    return ws.str('(', fn, ').apply(null, [', argBuffer.join(', ') ,"])");
   }
   
   function emitBinOperator(form, env, opts) {
@@ -490,6 +542,34 @@ goog.scope(function() {
     return ws.str('(', valBuffer.join(op), ')');
   }
 
+  ws['object?'] = ws.eval(['fn', ['x'], ['===', ['type', 'x'], '`object']]);
+  ws['primitive?'] = ws.eval(['fn', ['x'], ['!==', ['type', 'x'], '`object']]);
+
+  ws['+'] = ws.eval(
+    ['fn', [], 0,
+           ['x'], 'x',
+           ['x', '&xs'], ['eval', ['cons', '`+', ['cons', 'x', 'xs']]]]);
+
+  ws['-'] = ws.eval(
+    ['fn', [], 0,
+           ['x'], 'x',
+           ['x', '&xs'], ['eval', ['cons', '`-', ['cons', 'x', 'xs']]]]);
+
+  ws['*'] = ws.eval(
+    ['fn', [], 1,
+           ['x'], 'x',
+           ['x', '&xs'], ['eval', ['cons', '`*', ['cons', 'x', 'xs']]]]);
+
+  ws['/'] = ws.eval(
+    ['fn', [], 1,
+           ['x'], 'x',
+           ['x', '&xs'], ['eval', ['cons', '`/', ['cons', 'x', 'xs']]]]);
+/*
+  ws['/'] = ws.eval(
+      ['fn', [], 1,
+             ['x'], 'x',
+             ['x', 'y'], ['new', 'Rat', 'x', 'y']]);
+*/
   /*
    * TODO: Macros
    *
@@ -503,73 +583,5 @@ goog.scope(function() {
    * ..-     Property Chaining
    * ..?     Null safe object Chaining
    *
-   * TODO: Special Forms
-   *
-   * let
-   *
-   * We're going to need a stack for this and for some the the
-   * ambiguity resolution needed for symbols / strings.
-   *
-   * Symbol / String resolution rules
    */
-  ws.analyzeAst = function(ast) {
-    var res, i, key, value;
-    switch(ast.tag) {
-      case 'symbol':
-  
-      case 'List':
-      case 'Vector':
-      case 'Array':
-        value = ast.value;
-        // special forms
-        if ( value.length > 0 ) {
-          if ( value[0].tag === 'symbol' ) {
-            switch(value[0].value) {
-              case 'if':
-                return h.assoc(ast, 'tag', 'if');
-              case '?':
-                return h.assoc(ast, 'tag', 'existential');
-              case 'def':
-                return h.assoc(ast, 'tag', 'definition');
-              case 'quote':
-                return h.assoc(ast, 'tag', 'quote');
-              case 'comment':
-                return h.assoc(ast, 'tag', 'comment');
-              case 'fn':
-                return h.assoc(ast, 'tag', 'lambda');
-              case '.':
-                return h.assoc(ast, 'tag', 'object-resolution');
-              case '+':
-              case '-':
-              case '*':
-              case '/':
-              case 'or':
-              case 'and':
-              case 'not':
-              case '<':
-              case '>':
-                return h.assoc(ast, 'tag', 'operator');
-              case '=':
-                value = value.slice(1, value.length);
-                value.unshift({tag: 'symbol', value: '===', form: '='});
-                return {tag: 'operator', form: ast.form, value: value};
-              default:
-                break;
-            }
-          }
-    
-          // function application
-          if ( value[0].tag === 'Array' || value[0].tag === 'symbol' || value[0].tag === 'keyword' || value[0].tag === 'Map' ) {
-            return h.assoc(ast, 'tag', 'application');
-          }
-          
-          if ( value[0].value === '~#' ) {
-            return {tag: 'Array', value: value.slice(1, value.length), form: value.form};
-          }
-        }
-        return ast;
-      default:
-        return ast;
-    }
-  };
 });

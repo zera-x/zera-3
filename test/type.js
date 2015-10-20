@@ -18,7 +18,3 @@ exports.testRational = function(test) {
   test.ok(a.div(2).eq(new t.Rat(3, 8)),  "3/4 / 2 = 3/8");
   test.done();
 };
-
-exports.testSymbol = function(test) {
-  var s = new t.Symbol("wonderscript/core");
-};

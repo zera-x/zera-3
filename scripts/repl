@@ -5,6 +5,8 @@ require("../vendor/closure-library/closure/goog/bootstrap/nodejs.js");
 require("../vendor/closure-library/closure/goog/wonderscript_deps.js");
 
 goog.require("wonderscript");
+goog.require("wonderscript.edn");
 
 global.ws = wonderscript;
 global.t = wonderscript.types;
+global.edn = wonderscript.edn;

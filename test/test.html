@@ -1,5 +1,6 @@
-<script src="wonderscript.js" type="text/javascript"></script>
+<script src="../dist/wonderscript.js" type="text/javascript"></script>
 <script type="text/javascript">
+  var ws = wonderscript;
   var i, code, forms = [
     [],
     {},
@@ -45,7 +46,7 @@
   for (i = 0; i < forms.length; ++i) {
     console.log("form:", forms[i]);
     try {
-      code = ws.compileFromAst(ws.readFromJs(forms[i]));
+      code = ws.emit(forms[i]);
       console.log("code:", code);
       console.log("eval:", eval(code));
     }

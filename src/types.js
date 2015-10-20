@@ -1,9 +1,5 @@
 goog.provide('wonderscript.types');
 
-if ( module && module.exports ) {
-  module.exports = wonderscript.types
-}
-
 goog.scope(function() {
 
   var ws = wonderscript;
@@ -244,7 +240,7 @@ goog.scope(function() {
     else if ( typeof b === 'number' ) return a.add(b);
     return a.add(b)
   };
-  ws['+'] = ws.div;
+  ws['+'] = ws.add;
 
   ws.mult = function(a, b) {
     if ( typeof a === 'number' && typeof b === 'number' ) return a * b;
@@ -264,7 +260,7 @@ goog.scope(function() {
 
   ws.div = function(a, b) {
     if ( typeof a === 'number' && typeof b === 'number' ) return new t.Rat(a, b);
-    else if ( typeof a === 'number' ) return new t.Rat(a, 1).div(b);
+    else if ( typeof a === 'number' ) return new ws.Rat(a, 1).div(b);
     else if ( typeof b === 'number' ) return a.div(b);
     return a.div(b)
   };
@@ -280,7 +276,7 @@ goog.scope(function() {
   };
   ws['='] = ws.eq;
 
-  t.Rat = ws.type(
+  ws.Rat = ws.type(
     "An implementation of a rational numeric type",
     ['m', 'n'],
     t.INumeric,
@@ -361,14 +357,14 @@ goog.scope(function() {
      denominator: function(r) { return r.n },
      numerator: function(r) { return r.m },
      //toString: function(r) { return "" + r.m + "/" + r.n },
-     toString: function(r) { return "new wonderscript.types.Rat(" + r.m + ", " + r.n + ")" },
-     toSource: function(r) { return "new wonderscript.types.Rat(" + r.m + ", " + r.n + ")" },
+     toString: function(r) { return ws.str(r.m, "/", r.n) },
+     toSource: function(r) { return "new wonderscript.Rat(" + r.m + ", " + r.n + ")" },
      toNumber: function(r) { return r.m / r.n }
   });
 
   t.ISeq = ws.protocol({
     cons: 'required',
-    conj: 'required',
+    conj: 'required'
   });
 
   ws.cons = function(v, seq) {
@@ -546,119 +542,7 @@ goog.scope(function() {
     }
   };
 
-  t.ISymbolic = ws.protocol(
-    {hashCode: 
-       function(sym) {
-         console.log('ISymbolic sym:', sym);
-         console.log(sym.value);
-         if ( typeof sym.$hashCode === 'undefined' ) {
-           sym.$hashCode = hashCode(sym.value);
-         }
-         return sym.$hashCode;
-       },
-     eq:
-       function(a, b) {
-         if ( b.hashCode ) return a.hashCode() === b.hashCode();
-         return false;
-       }
-  });
-
-  t.ISymbol = ws.protocol("", t.ISymbolic, t.IMapable, t.ICollection, t.ISeq);
-
-  ws.name = function(sym) { return sym.name() };
-  ws.ns = function(sym) { return sym.ns() };
-  ws.match = function(sym, regex) { return sym.match(regex) };
-  ws.replace = function(sym, pat, sub) { return sym.replace(pat, sub) };
-
-  t.Char = ws.type(
-    "Charater type",
-    ['value'],
-    t.ISymbolic,
-    {ascii: function(c) { return c.value.charCodeAt(0) },
-     uppercase: function(c) { return c.value.toUpperCase() },
-     lowercase: function(c) { return c.value.toLowerCase() },
-     toString: function(c) { return c.value.toString() }});
-
-  ws.char = ws.initializer(t.Char);
-
-  t.Char.fromAscii = function(code) {
-    return new t.Char(String.fromCharCode(code));
-  };
-
-  t.Symbol = ws.type(
-    "Symbol type",
-    ['value'],
-    t.ISymbol,
-    {ns:
-      function(sym) {
-        var parts = sym.value.split('/');
-        if ( parts.length === 2 ) return new t.Symbol(parts[0]);
-        return null;
-      },
-     name:
-       function(sym) {
-         var parts = sym.value.split('/');
-         if ( parts.length === 2 ) return new t.Symbol(parts[1]);
-         return new t.Symbol(parts[0]);
-       },
-     entries: function(sym) { return ws.map(ws.char, sym.value.split('')) },
-     each:
-      function(sym, fn) {
-        var xs = sym.entries(), i;
-        for (i = 0; i < xs.length; ++i) {
-          fn.call(null, xs[i], i);
-        }
-        return sym;
-      },
-     count: function(sym) { return sym.value.length },
-     isEmpty: function(sym) { return sym.value.length === 0 },
-     get:
-       function(sym, k) {
-         if ( typeof sym.$cache === 'undefined' ) {
-           sym.$cache = {};
-           var xs = sym.entries(), i;
-           for (i = 0; i < xs.length; ++i) {
-             sym.$cache[ws.hashCode(xs[i])] = true;
-           }
-         }
-         console.log(k);
-         console.log(ws.hashCode(k));
-         return !!sym.$cache[ws.hashCode(k)] ? k : null;
-       },
-     apply: function(sym, m) { return ws.get(m, sym) },
-     match: function(sym, regex) { return regex.test(sym.value) },
-     cons:
-       function(sym, val) {
-         return new t.Symbol(val.toString() + sym.value)
-       },
-     conj:
-       function(sym, val) {
-         return new t.Symbol(sym.value + val.toString())
-       },
-     nth: function(sym, n) { return sym.value[n] },
-     first: function(sym) { return sym.nth(0) },
-     second: function(sym) { return sym.nth(1) },
-     third: function(sym) { return sym.nth(2) },
-     fourth: function(sym) { return sym.nth(3) },
-     rest:
-       function(sym) {
-         var xs = sym.entries();
-         return xs.slice(1, xs.length);
-       },
-     last: function(sym) { return sym.value[sym.value.length - 1] },
-     replace:
-       function(sym, pat, sub) {
-         return new t.Symbol(sym.value.replace(pat, sub.toString()));
-       },
-     concat: function(a, b) { return new t.Symbol(a.value + b.value) },
-     uppercase: function(sym) { return new t.Symbol(sym.value.toUpperCase()) },
-     lowercase: function(sym) { return new t.Symbol(sym.value.toLowerCase()) },
-     capitalize: function(sym) { return new t.Symbol(sym.first().uppercase() + sym.rest().join('')); },
-     valueOf: function(sym) { return sym.value },
-     toSource: function(sym) { return "new wonderscript.types.Symbo(" + sym.value + ")" },
-     toString: function(sym) { return sym.value.toString() }});
-
-  t.IPersistentList = ws.protocol("", t.ISeq, t.ICollection);
+  t.IPersistentList = {}; //ws.protocol("", t.ISeq, t.ICollection);
 
   t.PersistentList = ws.type(
     "PersistentList",
@@ -706,7 +590,7 @@ goog.scope(function() {
     return l;
   };
 
-  t.IPersistentArrayMap = ws.protocol("", t.IMapable, t.ISeq);
+  t.IPersistentArrayMap = {}; //ws.protocol("", t.IMapable, t.ISeq);
 
   t.PersistentArrayMap = ws.type(
     "PersistentArrayMap",
