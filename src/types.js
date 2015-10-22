@@ -283,17 +283,17 @@ goog.scope(function() {
     {add:
       function(a, b) {
         // rational
-        if ( b instanceof t.Rat ) {
-          if ( a.n === b.n ) return new t.Rat(a.m + b.m, a.n);
+        if ( b instanceof ws.Rat ) {
+          if ( a.n === b.n ) return new ws.Rat(a.m + b.m, a.n);
           else {
             var n = ws.lcm(a.n, b.n)
               , Ma = (n / a.n) * a.m
               , Mb = (n / b.n) * b.m;
-            return new t.Rat(Ma + Mb, n);
+            return new ws.Rat(Ma + Mb, n);
           }
         }
         // integer
-        else if ( b % 1 === 0 ) return a.add(new t.Rat(b, 1));
+        else if ( b % 1 === 0 ) return a.add(new ws.Rat(b, 1));
         // float
         else if ( typeof b === 'number' ) return a.toNumber() + b;
         else {
@@ -303,17 +303,17 @@ goog.scope(function() {
      sub:
        function(a, b) {
          // rational
-         if ( b instanceof t.Rat ) {
-           if ( a.n === b.n ) return new t.Rat(a.m - b.m, a.n);
+         if ( b instanceof ws.Rat ) {
+           if ( a.n === b.n ) return new ws.Rat(a.m - b.m, a.n);
            else {
              var n = ws.lcm(a.n, b.n)
                , Ma = (n / a.n) * a.m
                , Mb = (n / b.n) * b.m;
-             return new t.Rat(Ma - Mb, n);
+             return new ws.Rat(Ma - Mb, n);
            }
          }
          // integer
-         else if ( b % 1 === 0 ) return a.sub(new t.Rat(b, 1));
+         else if ( b % 1 === 0 ) return a.sub(new ws.Rat(b, 1));
          // float
          else if ( typeof b === 'number' ) return a.toNumber() - b;
          else {
@@ -322,22 +322,22 @@ goog.scope(function() {
        },
      mult:
        function(a, b) {
-         if ( b instanceof t.Rat ) {
-           return new t.Rat(a.m * b.m, a.n * b.n);
+         if ( b instanceof ws.Rat ) {
+           return new ws.Rat(a.m * b.m, a.n * b.n);
          }
-         else if ( b % 1 === 0 ) return new t.Rat(a.m * b, a.n);
+         else if ( b % 1 === 0 ) return new ws.Rat(a.m * b, a.n);
          else if ( typeof b === 'number' ) return a.toNumber() * b;
          else {
           throw new Error("invalid type '" + b + "' is not a number");
          }
        },
-     invert: function(r) { return new t.Rat(r.n, r.m) },
+     invert: function(r) { return new ws.Rat(r.n, r.m) },
      div:
        function(a, b) {
-         if ( b instanceof t.Rat ) {
+         if ( b instanceof ws.Rat ) {
            return b.invert().mult(a);
          }
-         else if ( b % 1 === 0 ) return new t.Rat(1, b).mult(a);
+         else if ( b % 1 === 0 ) return new ws.Rat(1, b).mult(a);
          else if ( typeof b === 'number' ) return a.toNumber() / b;
          else {
           throw new Error("invalid type '" + b + "' is not a number");
@@ -345,7 +345,7 @@ goog.scope(function() {
        },
      eq:
        function(a, b) {
-         if ( b instanceof t.Rat ) {
+         if ( b instanceof ws.Rat ) {
            return a.m === b.m && a.n === b.n;
          }
          else if ( b % 1 === 0 ) return a.m === b && a.n == 1;

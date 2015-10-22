@@ -248,14 +248,16 @@ goog.scope(function() {
     else throw new Error(ws.str("'", fn, "' is not a function"));
   };
 
+  var XFORMERS = {};
+
   // JsValue -> String
   ws.emit = function(form) {
     var value, i, key, env = env || ws, opts = opts || {};
     if ( typeof form === 'string' ) {
-      if ( /^(:|'|`)/.test(form) ) return JSON.stringify(form.replace(/^(:|'|`)/, ''));
+      var xf = XFORMERS[form];
+      if ( xf && xf instanceof Function ) return ws.emit(xf(form));
+      else if ( /^(:|'|`)/.test(form) ) return JSON.stringify(form.replace(/^(:|'|`)/, ''));
       else if ( /^".*"$/.test(form) ) return form;
-      else if ( form === 'on' || form === 'yes' || form === 'true' ) return 'true';
-      else if ( form === 'off' || form === 'no' || form === 'false' ) return 'false';
       // fractions
       else if ( /^\d+\/\d+$/.test(form) ) {
         var res = /^(\d+)\/(\d+)/.exec(form);
@@ -280,7 +282,7 @@ goog.scope(function() {
       if ( form.multiline ) flags.push('m');
       return ws.str('/', form.source, '/', flags.join(''));
     }
-    else if ( form instanceof Array ) {
+    else if ( form instanceof Array && (!form.type || form.type === 'list') ) {
       switch(form[0]) {
         case 'if':
           return emitIf(form, env, opts);
@@ -288,26 +290,28 @@ goog.scope(function() {
           return emitCond(form, env, opts);
         case '?':
           return emitExistential(form, env, opts);
-        case 'null?':
-          return emitNullTest(form, env, opts);
+        /*case 'null?':
+          return emitNullTest(form, env, opts);*/
         case 'instance?':
           return ws.str(ws.emit(form[1]), ' instanceof ', ws.emit(form[2]));
         case 'type':
           return ws.str('typeof ', ws.emit(form[1]));
         case 'js':
           return form[1];
-        case 'var':
         case 'def':
           return emitDef(form, env, opts);
-        case 'function':
         case 'fn':
           return emitFunc(form, env, opts);
+        case 'define-syntax':
+          if ( form.length !== 3 ) throw new Error("define-syntax malformed");
+          XFORMERS[form[1]] = ws.eval(form[2]);
+          return "";
         case 'loop':
           // TODO
         case 'again':
           // TODO
         case 'throw':
-          // TODO
+          return ws.str("(function(){ throw ", ws.emit(form[1]), '}())');
         case 'try':
           // TODO
         case 'catch':
@@ -327,15 +331,24 @@ goog.scope(function() {
         // binary operators
         // TODO: get a complete list of JavaScript's binary operators
         // TODO: add urnary operators also
+        case 'not':
+          return ws.str('!(', ws.emit(form[1]), ')');
+        case 'or':
+          return emitBinOperator(['||'].concat(form.slice(1)), env, opts);
+        case 'and':
+          return emitBinOperator(['&&'].concat(form.slice(1)), env, opts);
+        case 'bit-or':
+          return emitBinOperator(['|'].concat(form.slice(1)), env, opts);
+        case 'bit-and':
+          return emitBinOperator(['&'].concat(form.slice(1)), env, opts);
+        case 'bit-shift-left':
+          return emitBinOperator(['<<'].concat(form.slice(1)), env, opts);
+        case 'bit-shift-right':
+          return emitBinOperator(['<<'].concat(form.slice(1)), env, opts);
         case '+':
         case '-':
         case '/':
         case '*':
-        case '&':
-        case '|':
-        case '<<':
-        case '&&':
-        case '||':
         case '==':
         case '!=':
         case '===':
@@ -346,13 +359,15 @@ goog.scope(function() {
         case 'comment':
           return null;
         default:
+          var xf = XFORMERS[form[0]];
+          if ( xf && xf instanceof Function ) return ws.emit(xf(form));
           return emitFuncApplication(form, env, opts);
       }
     }
     else if ( typeof form === 'object' && form.toSource ) return form.toSource();
-    else if ( typeof form[0] === 'object' ) {
+    /*else if ( typeof form[0] === 'object' ) {
       return emitFuncApplication(form, env, opts);
-    }
+    }*/
     else {
       return JSON.stringify(form);
     }
@@ -388,17 +403,9 @@ goog.scope(function() {
     return ws.str('(function(){ ', buff.join(' '), '}())');
   }
   
-  function symbolize(val) {
-    if ( typeof val === 'undefined' ) return 'undefined';
-    else if ( val === null ) return 'null';
-    else {
-      return val;
-    }
-  }
-
   function emitExistential(form, env, opts) {
     var val = ws.emit(form[1], env, opts);
-    return ws.str("(typeof ", symbolize(val), " !== 'undefined')");
+    return ws.str("(", ws.emit(val), " != null)");
   }
 
   function emitNullTest(form, env, opts) {
@@ -473,7 +480,12 @@ goog.scope(function() {
       argsDef = genArgsDef(argsBuf);
   
       expr = ws.emit(form[2], env, opts);
-      return ws.str("(function(", argsDef, ") { var ", argsDef, ';', argsAssign, " return ", expr, " })");
+      if ( args.length === 0 ) {
+        return ws.str("(function(", argsDef, ") { return ", expr, " })");
+      }
+      else {
+        return ws.str("(function(", argsDef, ") { var ", argsDef, ';', argsAssign, " return ", expr, " })");
+      }
     }
     else {
       var pairs = ws.pair(form.slice(1));
@@ -504,11 +516,11 @@ goog.scope(function() {
   function emitObjectRes(form) {
     var obj = form[1]
       , prop = form[2]
-    return ws.str('(', ws.emit(obj), ').', prop);
+    return ws.str('(', ws.emit(obj), ')["', prop, '"]');
   }
 
   function emitMethodCall(form) {
-    return emitFuncApplication([emitObjectRes(form)].concat(form.slice(2)));
+    return ws.str(emitObjectRes(form), '(', form.slice(3).join(', '), ')');
   }
 
   function emitClassInit(form) {
@@ -542,6 +554,38 @@ goog.scope(function() {
     return ws.str('(', valBuffer.join(op), ')');
   }
 
+  // boolean aliases
+  ws.eval(['define-syntax', 'on', ['fn', ['form'], 'true']]);
+  ws.eval(['define-syntax', 'yes', ['fn', ['form'], 'true']]);
+  ws.eval(['define-syntax', 'true', ['fn', ['form'], 'true']]);
+  ws.eval(['define-syntax', 'off', ['fn', ['form'], 'false']]);
+  ws.eval(['define-syntax', 'no', ['fn', ['form'], 'false']]);
+  ws.eval(['define-syntax', 'false', ['fn', ['form'], 'false']]);
+
+  // yada yada
+  ws.eval(['define-syntax', '...', ['fn', ['form'], ['throw', ['new', 'Error', '"not implemented"']]]]);
+
+  // JS aliases
+  ws.eval(
+      ['define-syntax', 'function',
+        ['fn', ['form'],
+          ['array', ['quote', 'fn'], ['form', 1], ['form', 2]]]]);
+
+  ws.eval(
+      ['define-syntax', 'var',
+        ['fn', ['form'],
+          ['array', ['quote', 'def'], ['form', 1], ['form', 2]]]]);
+
+  ws.cons = function(a, list) {
+    return [a].concat(list);
+  };
+
+  ws.eval(
+      ['define-syntax', 'let',
+        ['fn', ['form'], 'form']]);
+          
+
+  ws['null?'] = ws.eval(['fn', ['x'], ['===', 'null', 'x']]);
   ws['object?'] = ws.eval(['fn', ['x'], ['===', ['type', 'x'], '`object']]);
   ws['primitive?'] = ws.eval(['fn', ['x'], ['!==', ['type', 'x'], '`object']]);
 
@@ -564,16 +608,48 @@ goog.scope(function() {
     ['fn', [], 1,
            ['x'], 'x',
            ['x', '&xs'], ['eval', ['cons', '`/', ['cons', 'x', 'xs']]]]);
-/*
-  ws['/'] = ws.eval(
-      ['fn', [], 1,
-             ['x'], 'x',
-             ['x', 'y'], ['new', 'Rat', 'x', 'y']]);
-*/
+
+  ws['now'] = ws.eval(['fn', [], ['new', 'Date']]);
+  ws['toDay'] = ws.eval(
+      ['fn', ['d'],
+        ['new', 'Date', ['.', 'd', 'getUTCFullYear'],
+                        ['.', 'd', 'getUTCMonth'],
+                        ['.', 'd', 'getUTCDate']]]);
+
+  ws['today'] = ws.eval(['fn', [], ['toDay', ['now']]]);
+  
+  ws['range'] = function() {
+    var start = 0, stop, step = 1, a = [], i;
+    if ( arguments.length === 0 ) return [];
+    else if ( arguments.length === 1 ) {
+      stop = arguments[0];
+    }
+    else if ( arguments.length === 2 ) {
+      start = arguments[0];
+      stop = arguments[1];
+    }
+    else if ( arguments.length === 3 ) {
+      start = arguments[0];
+      stop = arguments[1];
+      step = arguments[2];
+    }
+    else {
+      throw new Error(ws.str("wrong number of arguments, got ", arguments.length));
+    }
+
+    for (i = start; i <= stop; i += step) {
+      a.push(i);
+    }
+
+    return a;
+  };
+
+
   /*
    * TODO: Macros
    *
    * defn
+   * let
    * ->      Piping ala Clojure
    * ->>
    * .?      Null safe object resolution

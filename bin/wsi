@@ -18,7 +18,7 @@ rl.on('line', function(code) {
     var code = wonderscript.emit(wonderscript.edn.read(code.trim()));
     //console.log(code);
     var res = eval(code);
-    console.log(""+res);
+    console.log(res);
   }
   catch (e) {
     console.error(e);
