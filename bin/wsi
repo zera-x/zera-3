@@ -15,7 +15,7 @@ rl.prompt();
 
 rl.on('line', function(code) {
   try {
-    var code = wonderscript.emit(wonderscript.edn.read(code.trim()));
+    var code = wonderscript.emit(wonderscript.read(code.trim()));
     //console.log(code);
     var res = eval(code);
     console.log(res);

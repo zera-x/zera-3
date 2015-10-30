@@ -1,20 +1,3 @@
-// NAME
-// ====
-//
-// WonderScript - A simple lisp that compiles to JavaScript from EDN, JSON, or JavaScript literal sources
-//
-// SYNOPSIS
-// ========
-//
-// WonderScript to be a simple lisp in the spirit of PicoLisp and Scheme, that can be used as a standalone
-// language or as an embedded language in JavaScript, for generating JavaScript code.  It features a Prolog
-// (called Honey), for querying databases, graphs, or the DOM.  It also is integrated with two other languages
-// "Peanut Butter" for generating HTML, and XML languages and integrating with the DOM, and Jelly for generating
-// stylesheets.
-//
-// WonderScript takes inspiration from various languages including Clojure, PicoLisp, Racket, JavaScript, Shen,
-// Prolog, SASS, HAML, CoffeeScript, and LiveScript.
-
 goog.provide('wonderscript');
 goog.provide('wonderscript.helpers');
 goog.require('wonderscript.types');
