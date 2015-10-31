@@ -114,7 +114,7 @@ goog.scope(function() {
   };
 
   // Array -> Function -> Array
-  ws.map = function(a, fn) {
+  ws.map = function(fn, a) {
     var newA = [], i;
     for (i = 0; i < a.length; ++i) {
       newA.push(fn.call(null, a[i], i));
@@ -123,8 +123,8 @@ goog.scope(function() {
   };
   
   // Array -> Function -> Array
-  ws.mapcat = function(a, fn) {
-    var a = ws.map(a, fn)
+  ws.mapcat = function(fn, a) {
+    var a = ws.map(fn, a)
       , newA = []
       , i;
     for (i = 0; i < a.length; ++i) {
@@ -134,7 +134,7 @@ goog.scope(function() {
   };
 
   // Array -> Function -> Array
-  ws.filter = function(a, fn) {
+  ws.filter = function(fn, a) {
     var i, newA = [];
     for (i = 0; i < a.length; ++i) {
       if ( fn.call(null, a[i], i) ) newA.push(a[i]);
@@ -144,7 +144,7 @@ goog.scope(function() {
 
   // Array -> Function -> JsValue
   // Array -> Function -> JsValue -> JsValue
-  ws.reduce = function(a, fn, memo) {
+  ws.reduce = function(fn, a, memo) {
     var i;
     for (i = 0; i < a.length; ++i) {
       if ( typeof memo === 'undefined' && i === 0 ) memo = a[i];
@@ -155,16 +155,16 @@ goog.scope(function() {
 
   // Array -> JsValue
   ws.min = function(a) {
-    return ws.reduce(a, function(memo, n) {
+    return ws.reduce(function(memo, n) {
       return memo < n ? memo : n;
-    });
+    }, a);
   };
 
   // Array -> JsValue
   ws.max = function(a) {
-    return ws.reduce(a, function(memo, n) {
+    return ws.reduce(function(memo, n) {
       return memo > n ? memo : n;
-    });
+    }, a);
   };
 
   // Object -> String -> JsValue -> Object
@@ -177,10 +177,6 @@ goog.scope(function() {
     return newObj;
   };
   
-  ws.pprint = function(form) {
-    return ws.compileFromAst(ws.readFromJs(form), {}, {skipAnalysis: true});
-  };
-
   // Object -> Object
   ws.merge = function(o1, o2) {
     var o = {}, k;
@@ -190,20 +186,20 @@ goog.scope(function() {
   };
 
   // Array -> Function -> Boolean
-  ws.any = function(a, fn) {
-    return ws.filter(a, fn).length !== 0;
+  ws.any = function(fn, a) {
+    return ws.filter(fn, a).length !== 0;
   };
 
   // Array -> Array
   ws.uniq = function(a) {
-    var set = ws.reduce(a, function(memo, n) {
+    var set = ws.reduce(function(memo, n) {
       var o = {};
       if ( !memo[n] ) {
         o[n] = true;
         return ws.merge(memo, o);
       }
       return memo;
-    }, {});
+    }, a, {});
 
     var newA = [], k;
     for ( k in set ) newA.push(k);
@@ -231,15 +227,60 @@ goog.scope(function() {
     else throw new Error(ws.str("'", fn, "' is not a function"));
   };
 
+  ws.__CURRENT_NAMESPACE__ = 'wonderscript';
+  
+  // TODO: needs work, think this through
+  ws.ns = function() {
+    return ws.__CURRENT_NAMESPACE__;
+  };
+
   var XFORMERS = {};
+  
+  ws.macro = function(name) {
+    return XFORMERS[name];
+  };
+
+  ws.isMacro = function(form) {
+    return !!(XFORMERS[form] || XFORMERS[form[0]]);
+  };
+  ws['macro?'] = ws.isMacro;
+
+  ws.macroexpand = function(form) {
+    var xf = XFORMERS[form] || XFORMERS[form[0]];
+    return xf && xf instanceof Function
+           ? xf.call(null, form)
+           : form;
+  };
+
+  ws.pprint = function(form) {
+    if ( typeof form === 'string' ) return ws.str('"', form, '"');
+    else if ( typeof form === 'boolean' ) return form;
+    else if ( form === null ) return 'null';
+    else if ( typeof form === 'undefined' ) return 'undefined';
+    else if ( form instanceof Date ) return ws.str('new Date(', form.valueOf(), ')');
+    else if ( form instanceof RegExp ) {
+      var flags = [];
+      if ( form.ignoreCase ) flags.push('i');
+      if ( form.global ) flags.push('g');
+      if ( form.multiline ) flags.push('m');
+      return ws.str('/', form.source, '/', flags.join(''));
+    }
+    else if ( form instanceof Array ) {
+      var delim = form.type === 'list' ? ['(', ')'] : ['[', ']']
+        , sep = form.type === 'list' ? ' ' : ', ';
+      return ws.str(delim[0], ws.map(function(x){ return ws.pprint(x) }, form).join(sep), delim[1]);
+    }
+    else {
+      return ""+form;
+    }
+  };
 
   // JsValue -> String
   ws.emit = function(form) {
-    var value, i, key, env = env || ws, opts = opts || {};
+    var value, i, key, env = env || ws, opts = opts || {}, form = form;
+    if ( ws.isMacro(form) ) form = ws.macroexpand(form);
     if ( typeof form === 'string' ) {
-      var xf = XFORMERS[form];
-      if ( xf && xf instanceof Function ) return ws.emit(xf(form));
-      else if ( /^(:|'|`)/.test(form) ) return JSON.stringify(form.replace(/^(:|'|`)/, ''));
+      if ( /^(:|'|`)/.test(form) ) return JSON.stringify(form.replace(/^(:|'|`)/, ''));
       else if ( /^".*"$/.test(form) ) return form;
       // fractions
       else if ( /^\d+\/\d+$/.test(form) ) {
@@ -251,9 +292,12 @@ goog.scope(function() {
         var res = /^([\d\.]+)%$/.exec(form);
         return new ws.Rat(1*res[1], 100);
       }
-      else if ( ws[form] ) return ws.str('wonderscript["', form, '"]');
+      // underscrores to delimit numbers
+      else if ( /^[\d_]+$/.test(form) ) return form.replace(/_/g, '');
+      else if ( ws[form] ) return ws.str(ws.__CURRENT_NAMESPACE__, '["', form, '"]');
       return form;
     }
+    else if ( typeof form === 'number' ) return form.toString();
     else if ( typeof form === 'boolean' ) return form;
     else if ( form === null ) return 'null';
     else if ( typeof form === 'undefined' ) return 'undefined';
@@ -267,6 +311,9 @@ goog.scope(function() {
     }
     else if ( form instanceof Array && (!form.type || form.type === 'list') ) {
       switch(form[0]) {
+        case 'use':
+          if ( form[1] ) ws.__CURRENT_NAMESPACE__ = form[1];
+          return "";
         case 'if':
           return emitIf(form, env, opts);
         case 'cond':
@@ -314,6 +361,8 @@ goog.scope(function() {
         // binary operators
         // TODO: get a complete list of JavaScript's binary operators
         // TODO: add urnary operators also
+        case 'mod':
+          return ws.str('(', ws.emit(form[1]), '%', ws.emit(form[2]), ')');
         case 'not':
           return ws.str('!(', ws.emit(form[1]), ')');
         case 'or':
@@ -342,8 +391,14 @@ goog.scope(function() {
         case 'comment':
           return null;
         default:
-          var xf = XFORMERS[form[0]];
-          if ( xf && xf instanceof Function ) return ws.emit(xf(form));
+          if ( /^\.\-?[\w_$]+/.test(form[0]) ) {
+            var res = /^(\.\-?)([\w_$]+)/.exec(form[0]);
+            return ws.emit([res[1], form[1], res[2]].concat(form.slice(2)));
+          }
+          else if ( /^[\w_$]+\.$/.test(form[0]) ) {
+            var res = /^([\w_$]+)\.$/.exec(form[0]);
+            return ws.emit(['new', res[1]].concat(form.slice(1)));
+          }
           return emitFuncApplication(form, env, opts);
       }
     }
@@ -472,17 +527,17 @@ goog.scope(function() {
     }
     else {
       var pairs = ws.pair(form.slice(1));
-      args = parseArgs(ws.uniq(ws.mapcat(pairs, function(pair, i){ return pair[0] })));
+      args = parseArgs(ws.uniq(ws.mapcat(function(pair, i){ return pair[0] }, pairs)));
       argsAssign = genArgAssigns(args);
       argsDef = genArgsDef(args);
-      var code = ws.map(pairs, function(pair, i) {
+      var code = ws.map(function(pair, i) {
         var args = parseArgs(pair[0])
           , expr = ws.emit(pair[1])
           , cond = i === 0 ? 'if' : 'else if'
-          , cmp = ws.any(args, function(arg){ return arg.splat }) ? '>=' : '===';
+          , cmp = ws.any(function(arg){ return arg.splat }, args) ? '>=' : '===';
 
         return ws.str(cond, ' ( arguments.length ', cmp, ' ', args.length, ' ) { return ', expr, ' }');
-      }).concat(['else { throw new Error("wrong number of arguments") }']).join(' ');
+      }, pairs).concat(['else { throw new Error("wrong number of arguments") }']).join(' ');
 
       return ws.str('(function(){ var ', argsAssign, code, ' })');
     }
@@ -507,7 +562,7 @@ goog.scope(function() {
   }
 
   function emitClassInit(form) {
-    var args = ws.map(form.slice(2), function(arg){ return ws.emit(arg) }).join(', ');
+    var args = ws.map(function(arg){ return ws.emit(arg) }, form.slice(2)).join(', ');
     return ws.str('new ', ws.emit(form[1]), '(', args, ')');
   }
   
@@ -538,15 +593,12 @@ goog.scope(function() {
   }
 
   // boolean aliases
-  ws.eval(['define-syntax', 'on', ['fn', ['form'], 'true']]);
-  ws.eval(['define-syntax', 'yes', ['fn', ['form'], 'true']]);
-  ws.eval(['define-syntax', 'true', ['fn', ['form'], 'true']]);
-  ws.eval(['define-syntax', 'off', ['fn', ['form'], 'false']]);
-  ws.eval(['define-syntax', 'no', ['fn', ['form'], 'false']]);
-  ws.eval(['define-syntax', 'false', ['fn', ['form'], 'false']]);
-
-  // yada yada
-  ws.eval(['define-syntax', '...', ['fn', ['form'], ['throw', ['new', 'Error', '"not implemented"']]]]);
+  ws.eval(['define-syntax', 'on', ['fn', ['form'], '`true']]);
+  ws.eval(['define-syntax', 'yes', ['fn', ['form'], '`true']]);
+  ws.eval(['define-syntax', 'true', ['fn', ['form'], '`true']]);
+  ws.eval(['define-syntax', 'off', ['fn', ['form'], '`false']]);
+  ws.eval(['define-syntax', 'no', ['fn', ['form'], '`false']]);
+  ws.eval(['define-syntax', 'false', ['fn', ['form'], '`false']]);
 
   // JS aliases
   ws.eval(
@@ -559,18 +611,45 @@ goog.scope(function() {
         ['fn', ['form'],
           ['array', ['quote', 'def'], ['form', 1], ['form', 2]]]]);
 
-  ws.cons = function(a, list) {
-    return [a].concat(list);
-  };
-
   ws.eval(
       ['define-syntax', 'let',
-        ['fn', ['form'], 'form']]);
-          
+        ['fn', ['form'],
+          ['do',
+            ['def', 'bindings',
+              ['map', ['fn', ['x'], ['.concat', ['quote', ['def']], 'x']], ['pair', ['form', 1]]]],
+            ['def', 'exprs', ['.slice', 'form', 2]],
+            ['.concat', ['quote', ['do']], 'bindings', 'exprs']]]]);
+
+  ws.eval(
+      ['define-syntax', 'when',
+        ['fn', ['form'],
+          ['do',
+            ['def', 'exprs', ['.slice', 'form', 2]],
+            ['array', '`if', ['form', 1],
+              ['.concat', ['quote', ['do']], 'exprs']]]]]);
+
+  ws.eval(
+      ['define-syntax', 'unless',
+        ['fn', ['form'],
+          ['array', '`if', ['array', '`not', ['form', 1]], ['form', 2], ['form', 3]]]]);
+
+  ws.eval(
+      ['define-syntax', 'defn',
+        ['fn', ['form'],
+          ['let', ['rest', ['.slice', 'form', 2]], 
+            ['array', '`def', ['form', 1], ['.concat', ['quote', ['fn']], 'rest']]]]]);
+
+  ws.eval(
+      ['define-syntax', 'defmacro',
+        ['fn', ['form'],
+          ['let', ['rest', ['.slice', 'form', 2]], 
+            ['array', '`define-syntax', ['form', 1], ['.concat', ['quote', ['fn']], 'rest']]]]]);
 
   ws['null?'] = ws.eval(['fn', ['x'], ['===', 'null', 'x']]);
   ws['object?'] = ws.eval(['fn', ['x'], ['===', ['type', 'x'], '`object']]);
   ws['primitive?'] = ws.eval(['fn', ['x'], ['!==', ['type', 'x'], '`object']]);
+
+  ws.println = ws.eval(['fn', ['&args'], ['.apply', 'console.log', 'console', 'args']]);
 
   ws['+'] = ws.eval(
     ['fn', [], 0,
@@ -592,15 +671,6 @@ goog.scope(function() {
            ['x'], 'x',
            ['x', '&xs'], ['eval', ['cons', '`/', ['cons', 'x', 'xs']]]]);
 
-  ws['now'] = ws.eval(['fn', [], ['new', 'Date']]);
-  ws['toDay'] = ws.eval(
-      ['fn', ['d'],
-        ['new', 'Date', ['.', 'd', 'getUTCFullYear'],
-                        ['.', 'd', 'getUTCMonth'],
-                        ['.', 'd', 'getUTCDate']]]);
-
-  ws['today'] = ws.eval(['fn', [], ['toDay', ['now']]]);
-  
   ws['range'] = function() {
     var start = 0, stop, step = 1, a = [], i;
     if ( arguments.length === 0 ) return [];

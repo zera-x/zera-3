@@ -2,7 +2,8 @@
 //require("repl").start({useGlobal:true});
 
 var readline = require('readline')
-  , wonderscript = require('../dist/wonderscript.js');
+  , ws = require('../dist/wonderscript.js')
+  , wonderscript = ws;
 
 var rl = readline.createInterface({
   input: process.stdin,
@@ -10,19 +11,22 @@ var rl = readline.createInterface({
   terminal: true
 });
 
-rl.setPrompt("ws> ");
+rl.setPrompt(ws.str(ws.ns(), "> "));
 rl.prompt();
 
+var env = [];
+
 rl.on('line', function(code) {
-  try {
-    var code = wonderscript.emit(wonderscript.read(code.trim()));
-    //console.log(code);
+  //try {
+    env.push(ws.read(code.trim()));
+    var code = ws.map(function(expr){ return ws.emit(expr) }, env).join(';');
     var res = eval(code);
-    console.log(res);
-  }
+    console.log(ws.pprint(res));
+    rl.setPrompt(ws.str(ws.ns(), "> "));
+  /*}
   catch (e) {
     console.error(e);
-  }
+  }*/
   rl.prompt();
 });
 

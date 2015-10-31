@@ -259,7 +259,7 @@ goog.scope(function() {
   ws['-'] = ws.sub;
 
   ws.div = function(a, b) {
-    if ( typeof a === 'number' && typeof b === 'number' ) return new t.Rat(a, b);
+    if ( typeof a === 'number' && typeof b === 'number' ) return new ws.Rat(a, b);
     else if ( typeof a === 'number' ) return new ws.Rat(a, 1).div(b);
     else if ( typeof b === 'number' ) return a.div(b);
     return a.div(b)

@@ -1,0 +1,7 @@
+#!/usr/bin/env node --harmony
+
+var fs = require('fs')
+  , process = require('process')
+  , wonderscript = require('../dist/wonderscript.js');
+
+console.log(process.argv);
