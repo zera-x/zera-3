@@ -3,9 +3,6 @@ WonderScript
 
 A code-as-data language with a (subset of) JavaScript symatics, emphasising it's functional aspects.
 
-See
-http://ki-lang.org
-
 Data Types
 ==========
 
@@ -30,10 +27,10 @@ Data Types
   - Rat
 
 - Functions (IFunction)
-  - Object
   - Map
   - Function
   - Array
+  - Vector
 
 - Extention Types
   - Date
@@ -64,7 +61,20 @@ Special Forms
 Definitions
 -----------
 
-    (var NAME EXPRESSION)
+    (def NAME [EXPRESSION]) => "NAMESPACE[NAME] = [EXPRESSION]|undefined;"
+
+names go to the currently scoped namespace determined by `use`.
+
+    (def- NAME [EXPRESSION]) => "var NAME = [EXPRESSION];"
+
+private names within functions, modules, lexical scopes, etc.
+
+Modules & Namespaces
+--------------------
+
+    (use NAMESPACE)
+
+    (require [MODULE :a ALIAS] ...)
 
 Quotation
 ---------
@@ -74,7 +84,7 @@ Quotation
 Conditionals
 ------------
 
-    (if P1 C1 P2 C2 ... PN CN else ALT)
+    (cond P1 C1 P2 C2 ... PN CN else ALT)
 
 or
 
@@ -85,15 +95,14 @@ where P1-PN are predicate expressions, C1-CN corresponding consequtial expressio
 Functions
 ---------
 
-    (function ARGUMENTS BODY)
+    (fn ARGUMENTS BODY)
 
 or
 
-    (function ARITY1 BODY1
-              ARITY2 BODY2
-              ...
-              ARITYN BODYN)
-
+    (fn ARITY1 BODY1
+        ARITY2 BODY2
+        ...
+        ARITYN BODYN)
 
 Function Application
 --------------------
@@ -102,7 +111,9 @@ Function Application
 
 or
 
-    ((function ARGUMENTS BODY))
+    ((fn ARGUMENTS BODY))
+
+where `fn` is any object that implements an `apply` method.
 
 
 Lexical Scope
@@ -182,11 +193,15 @@ Assignment
 
     (set! NAME EXPRESSION)
 
+    (.-set! OBJECT NAME EXPRESSION)
+
 
 Object Instantiation
 --------------------
 
     (new CONSTRUCTOR ARG1 ARG2 ... ARGN)
+
+    (CONSTRUCTOR. ARG1 ARG2 ... ARGN)
 
 
 Object Method Call
@@ -194,15 +209,129 @@ Object Method Call
 
     (. OBJECT METHOD)
 
+    (.METHOD OBJECT)
+
 
 Object Property Access
 ----------------------
 
     (.- OBJECT PROPERTY)
 
+    (.-PROPERTY OBJECT)
+
+Macros
+------
+
+    (define-syntax DISPATCH FUNCTION)
+
+    (defmacro FORM_ARGS BODY)
+
+###Some core macros include:
+
+####`if`
+
+    (if PRED CONSEQUENT [ALTERNATE])
+
+expands to
+
+    (cond PRED CONSEQUENT [else ALTERNATE])
+
+####`defn`
+  
+Named functions
+
+    (defn square [x] (* x x))
+
+expands to
+
+    (.-set! CURRENT_NAMESPACE square (fn [x] (* x x)))
+
+####`defn-`
+
+Privately named functions
+
+    (defn- square [x] (* x x))
+
+expands to
+
+    (def square (fn [x] (* x x)))
+
+####`defmacro`
+
+Shortened form for defining macros
+
+    (defmacro on [form] (quote true))
+
+expands to
+
+    (define-syntax on (fn [form] (quote true)))
+
+####`.?`
+
+Null-safe method calling
+
+    (.? OBJECT METHOD ARGS*)
+
+expands to
+
+    (if (? (.- OBJECT METHOD)) (. OBJECT METHOD ARGS*) (object))
+
+####`..`
+
+Method chaining
+
+    (.. ($ document)
+        (.find ".tester")
+        (.fadeIn))
+
+expands to
+
+    (. (. ($ document) find ".tester") fadeIn)
+
+####`..?`
+
+Null-safe method chaining
+
+    (..? (User.find 1)
+         (.authenticate)
+         (.getToken))
+
+expands to
+
+   (let [obj2
+     (let [obj1 (User.find 1)]
+       (if (? (.- obj1 authenticate))
+           (. obj1 authenticate)
+           (object)))]
+     (if (? (.- obj2 getToken))
+         (. obj2 getToken)
+         (object)))
+         
+####`..-`
+
+Property chaining
+
+    ..-
+
+The same as method chaining, but accesses properties, doesn't chain methods
+
+####`..-?`
+
+Null-safe property chaining
+
+    ..-?
+
+The same as null-safe method chaining, but accesses properties, doesn't chain methods
+
+####`->`
+
+Threading or pipelininig forms
+
+    ->, ->>
+
+
 
 Operators
 ---------
 
     ? // exitential
-    ! // 
