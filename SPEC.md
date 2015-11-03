@@ -1,7 +1,7 @@
 WonderScript
 ============
 
-A code-as-data language with a (subset of) JavaScript symatics, emphasising it's functional aspects.
+A code-as-data language, that provides a light abstraction over JavaScript symatics, emphasising it's functional aspects.
 
 Data Types
 ==========
@@ -14,19 +14,14 @@ Data Types
    - String
    - Symbol
 
-- Booleans (IBoolean)
-  - Boolean
-  - Null
-  - Undefined
-  - String
-  - Number
-  - Object
-
 - Numeric (INumeric)
   - Number
   - Rat
+  - Nat?
+  - Int?
 
 - Functions (IFunction)
+  - Object
   - Map
   - Function
   - Array
@@ -34,6 +29,9 @@ Data Types
 
 - Extention Types
   - Date
+  - Time (time only)
+  - Day (date only)
+  - Instant (time and date)
   - RegExp
 
 - Objects (IObject)
@@ -47,6 +45,16 @@ Data Types
   - Date
   - RegExp
 
+- Reference Types (IRef)
+  - Atom
+  - Ref
+  - Var
+  - Promise
+
+- Abstract Data Types
+  - Type
+  - Record
+
 - Collections (ICollection)
   - String
   - Array
@@ -54,6 +62,148 @@ Data Types
   - Map
   - Set
   - Function
+
+- Stringlike (IStringlike)
+  - String
+  - Numeral?
+  - Keyword
+  - Symbol
+
+- Symbolic (ISymbolic)
+  - Symbol
+  - Keyword
+  - Null
+  - Undefined
+  - Boolean
+
+IPrimitive
+----------
+
+### Methods
+
+#### `type?, typeOf`
+
+#### `type`
+
+INumeric
+--------
+
+### Methods
+
+#### `add, +`
+
+#### `sub, -`
+
+#### `mult, *`
+
+#### `div, /`
+
+#### `toInt, ->Int`
+
+#### `toNat, ->Nat`
+
+#### `toRat, ->Rat`
+
+#### `toNumber, ->Number` (required)
+
+#### `toNumeral, ->Numeral, toString, ->String`
+
+IFunction
+---------
+
+### Attributes
+
+#### `arities`
+
+#### `doc`
+
+### Methods
+
+#### `apply` (required)
+
+#### `call`
+
+#### `compose`
+
+#### `memoize`
+
+#### `bind`
+
+#### `methodize`
+
+IObject
+-------
+
+### Attributes
+
+#### `attributes`
+
+#### `properties`
+
+#### `constructor`
+
+#### `prototype`
+
+#### `class`
+
+### Methods
+
+#### `send`
+
+#### `methods`
+
+#### `isa?, isa`
+
+#### `instance?, instanceOf`
+
+#### `emit`
+
+#### `valueOf`
+
+#### `hashCode`
+
+#### `toString, ->String`
+
+IRef
+----
+
+### Methods
+
+#### `deref`
+
+
+ICollection
+-----------
+
+### Methods
+
+#### `map`
+
+#### `reduce, reduceLeft`
+
+#### `reduceRight`
+
+#### `filter`
+
+#### `concat`
+
+#### `mapcat`
+
+#### `count`
+
+#### `pair`
+
+#### `any`
+
+#### `all`
+
+...More, much more
+
+IStringlike
+-----------
+
+ISymbolic
+---------
 
 Special Forms
 =============
@@ -207,9 +357,15 @@ Object Instantiation
 Object Method Call
 ------------------
 
-    (. OBJECT METHOD)
+    (. OBJECT METHOD ARGS*)
 
-    (.METHOD OBJECT)
+    (.METHOD OBJECT ARGS*)
+
+    (METHOD OBJECT ARGS*)
+
+    (OBJECT METHOD ARGS)
+
+    (send OBJECT METHOD ARGS)
 
 
 Object Property Access
@@ -218,6 +374,8 @@ Object Property Access
     (.- OBJECT PROPERTY)
 
     (.-PROPERTY OBJECT)
+
+    (-PROPERTY OBJECT)
 
 Macros
 ------
@@ -228,7 +386,7 @@ Macros
 
 ###Some core macros include:
 
-####`if`
+#### `if`
 
     (if PRED CONSEQUENT [ALTERNATE])
 
@@ -236,7 +394,7 @@ expands to
 
     (cond PRED CONSEQUENT [else ALTERNATE])
 
-####`defn`
+#### `defn`
   
 Named functions
 
@@ -246,7 +404,7 @@ expands to
 
     (.-set! CURRENT_NAMESPACE square (fn [x] (* x x)))
 
-####`defn-`
+#### `defn-`
 
 Privately named functions
 
@@ -256,7 +414,7 @@ expands to
 
     (def square (fn [x] (* x x)))
 
-####`defmacro`
+#### `defmacro`
 
 Shortened form for defining macros
 
@@ -266,7 +424,7 @@ expands to
 
     (define-syntax on (fn [form] (quote true)))
 
-####`.?`
+#### `.?`
 
 Null-safe method calling
 
@@ -276,7 +434,7 @@ expands to
 
     (if (? (.- OBJECT METHOD)) (. OBJECT METHOD ARGS*) (object))
 
-####`..`
+#### `..`
 
 Method chaining
 
@@ -288,7 +446,7 @@ expands to
 
     (. (. ($ document) find ".tester") fadeIn)
 
-####`..?`
+#### `..?`
 
 Null-safe method chaining
 
@@ -307,7 +465,7 @@ expands to
           (. obj2 getToken)
           (object)))
          
-####`..-`
+#### `..-`
 
 Property chaining
 
@@ -315,7 +473,7 @@ Property chaining
 
 The same as method chaining, but accesses properties, doesn't chain methods
 
-####`..-?`
+#### `..-?`
 
 Null-safe property chaining
 
@@ -323,7 +481,7 @@ Null-safe property chaining
 
 The same as null-safe method chaining, but accesses properties, doesn't chain methods
 
-####`->, ->>`
+#### `->, ->>`
 
 Threading or pipelininig forms
 
