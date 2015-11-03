@@ -376,7 +376,8 @@ goog.scope(function() {
         case 'new':
           return emitClassInit(form);
         case '.-set!':
-          throw new Error("not implemented");
+          if ( form.length !== 4 ) throw new SyntaxError("Object property assignment is malformed");
+          return ws.str(ws.emit(form[1]), '[', ws.emit(form[2]) , '] = ', ws.emit(form[3]));
         case 'set!':
           return emitAssignment(form);
         // binary operators
@@ -654,6 +655,14 @@ goog.scope(function() {
           ['array', '`define-syntax', ['form', 1],
             ['.concat', ['array', '`fn'], ['.slice', 'form', 2]]]]]);
 
+  ws.eval(
+      ['defmacro', 'let', ['form'],
+          ['do',
+            ['def', 'bindings',
+              ['map', ['pair', ['form', 1]] , ['fn', ['x'], ['.concat', ['array', '`def'], 'x']]]],
+            ['def', 'exprs', ['.slice', 'form', 2]],
+            ['.concat', ['array', '`do'], 'bindings', 'exprs']]]);
+
   // boolean aliases
   ws.eval(['defmacro', 'on', ['form'], '`true']);
   ws.eval(['defmacro', 'yes', ['form'], '`true']);
@@ -668,18 +677,8 @@ goog.scope(function() {
           ['array', ['symbol', '`fn'], ['form', 1], ['form', 2]]]);
 
   ws.eval(
-      ['define-syntax', 'var',
-        ['fn', ['form'],
-          ['array', '`def', ['form', 1], ['form', 2]]]]);
-
-  ws.eval(
-      ['define-syntax', 'let',
-        ['fn', ['form'],
-          ['do',
-            ['def', 'bindings',
-              ['map', ['pair', ['form', 1]] , ['fn', ['x'], ['.concat', ['array', '`def'], 'x']]]],
-            ['def', 'exprs', ['.slice', 'form', 2]],
-            ['.concat', ['array', '`do'], 'bindings', 'exprs']]]]);
+      ['defmacro', 'var', ['form'],
+          ['array', '`def', ['form', 1], ['form', 2]]]);
 
   ws.eval(
       ['define-syntax', 'when',

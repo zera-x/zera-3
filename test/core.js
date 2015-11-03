@@ -71,7 +71,7 @@ exports.testIntrospection = function(test) {
   test.done();
 };
 
-exports.specialForms = function(test) {
+exports.testConditionals = function(test) {
   test.equal(1, w.eval(['if', 'on', 1, 2]));
   test.equal(2, w.eval(['if', 'on', 2]));
   test.equal(2, w.eval(['if', 'off', 1, 2]));
@@ -88,6 +88,32 @@ exports.specialForms = function(test) {
   test.equal(false, w.eval(['?', null]));
   test.equal(false, w.eval(['?', undefined]));
   test.equal(true, w.eval(['null?', null]));
+
+  test.done();
+};
+
+exports.testOOP = function(test) {
+  var o = read(w.str(
+              '(do ',
+                '(def point (object))',
+                '(.-set! point "x" 1)',
+                '(.-set! point "y" 2)',
+                '(.-set! point :toString (fn [] (str "[" (.-x this) ", " (.-y this) "]")))',
+                '(Object.freeze point))'));
+
+  test.equal(1, o.x);
+  test.equal(2, o.y);
+  test.equal("[1, 2]", o.toString());
+
+  var o = read(w.str(
+              '(do ',
+                '(deftype Point [:x :y]',
+                  '{:toString (fn [p] (str "[" (.-x p) ", " (.-y p) "]"))})',
+                '(Point. 1 2))'));
+
+  test.equal(1, o.x);
+  test.equal(2, o.y);
+  test.equal("[1, 2]", o.toString());
 
   test.done();
 };
