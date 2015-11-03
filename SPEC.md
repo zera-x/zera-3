@@ -298,14 +298,14 @@ Null-safe method chaining
 
 expands to
 
-   (let [obj2
-     (let [obj1 (User.find 1)]
-       (if (? (.- obj1 authenticate))
-           (. obj1 authenticate)
-           (object)))]
-     (if (? (.- obj2 getToken))
-         (. obj2 getToken)
-         (object)))
+    (let [obj2
+      (let [obj1 (User.find 1)]
+        (if (? (.- obj1 authenticate))
+            (. obj1 authenticate)
+            (object)))]
+      (if (? (.- obj2 getToken))
+          (. obj2 getToken)
+          (object)))
          
 ####`..-`
 
@@ -323,7 +323,7 @@ Null-safe property chaining
 
 The same as null-safe method chaining, but accesses properties, doesn't chain methods
 
-####`->`
+####`->, ->>`
 
 Threading or pipelininig forms
 
