@@ -12,7 +12,15 @@ goog.scope(function() {
   var ws = wonderscript;
   var t = ws.types;
   var h = ws.helpers;
-  var end = ws.edn;
+  var edn = ws.edn;
+
+  var SPECIAL_CHARS = {
+    '=': '_EQ_',
+    '\\-': '_UN_',
+    '\\*': '_STAR_',
+    '!': '_BANG_',
+    '\\?': '_QUEST_'
+  };
   
   // JsValue -> Boolean
   ws.exists = function(val) {
@@ -220,6 +228,18 @@ goog.scope(function() {
     return XFORMERS[name];
   };
 
+  ws.isSymbol = function(form) {
+    return form instanceof String && form.type === 'symbol';
+  };
+
+  ws.isKeyword = function(form) {
+    return form instanceof String && form.type === 'keyword';
+  };
+
+  ws.isString = function(form) {
+    return typeof form === 'string' || (form instanceof String && form.type === 'string');
+  };
+
   ws.isMacro = function(form) {
     if ( form == null ) return false;
     return !!(XFORMERS[form] || XFORMERS[form[0]]);
@@ -258,6 +278,27 @@ goog.scope(function() {
     }
   };
 
+  ws.escapeChars = function(string) {
+    var ch, string = string;
+    for ( ch in SPECIAL_CHARS ) {
+      string = string.replace(new RegExp(ch, 'g'), SPECIAL_CHARS[ch]);
+    }
+    return string;
+  };
+
+  ws.unescapeChars = function(string) {
+    var ch, string = string;
+    for ( ch in SPECIAL_CHARS ) {
+      string = string.replace(new RegExp(SPECIAL_CHARS[ch], 'g'),
+                              ch.replace(new RegExp("\\\\", 'g'), ''));
+    }
+    return string;
+  };
+
+  ws.stringify = function(string) {
+    return JSON.stringify(escapeChars(string));
+  };
+
   // JsValue -> String
   ws.emit = function(form) {
     var value, i, key, env = env || ws, opts = opts || {}, form = form;
@@ -283,10 +324,12 @@ goog.scope(function() {
       if ( form.ignoreCase ) flags.push('i');
       if ( form.global ) flags.push('g');
       if ( form.multiline ) flags.push('m');
-      return ws.str('/', form.source, '/', flags.join(''));
+      return ws.str('new RegExp("', form.source, '", "', flags.join(''), '")');
     }
     else if ( form instanceof ws.ObjectMap ) {
-      return form.toSource();
+      return ws.str('wonderscript.objectMap(',
+              ws.concat.apply(null,
+                form.entries().map(function(x){ return [ws.emit(x[0]), ws.emit(x[1])] })).join(', '), ')');
     }
     else if ( form instanceof Array && (!form.type || form.type === 'list') ) {
       switch(form[0].toString()) {
@@ -314,14 +357,14 @@ goog.scope(function() {
           XFORMERS[form[1]] = ws.eval(form[2]);
           return "";
         case 'loop':
-          // TODO
-          return emitLoop(form);
+          throw new Error("not implemented");
+          //return emitLoop(form);
         case 'throw':
           return ws.str("(function(){ throw ", ws.emit(form[1]), '}())');
         case 'try':
-          // TODO
+          throw new Error("not implemented");
         case 'catch':
-          // TODO
+          throw new Error("not implemented");
         case 'do':
           return emitDo(form, env, opts);
         // object property resolution
@@ -332,6 +375,8 @@ goog.scope(function() {
           return emitMethodCall(form);
         case 'new':
           return emitClassInit(form);
+        case '.-set!':
+          throw new Error("not implemented");
         case 'set!':
           return emitAssignment(form);
         // binary operators
@@ -463,14 +508,14 @@ goog.scope(function() {
   function emitDef(form, env, opts) {
     var name = form[1]; // TODO: do something to permit lispy naming
     if ( form[2] )
-      return ws.str("var ", name, " = ", ws.emit(form[2], env), ";");
+      return ws.str("var ", ws.escapeChars(name), " = ", ws.emit(form[2], env), ";");
     else
-      return ws.str("var ", name, ";");
+      return ws.str("var ", ws.escapeChars(name), ";");
   }
 
   function emitAssignment(form, env, opts) {
     var name = form[1]; // TODO: do something to permit lispy naming
-    return ws.str(ws.emit(name), " = ", ws.emit(form[2], env), ";");
+    return ws.str(ws.escapeChars(name), " = ", ws.emit(form[2], env), ";");
   }
 
   function parseArgs(args) {
@@ -528,10 +573,10 @@ goog.scope(function() {
   
       expr = ws.emit(form[2], env, opts);
       if ( args.length === 0 ) {
-        return ws.str("(function recur(", argsDef, ") { return ", expr, " })");
+        return ws.str("(function(", argsDef, ") { return ", expr, " })");
       }
       else {
-        return ws.str("(function recur(", argsDef, ") { var ", argsDef, ';', argsAssign, " return ", expr, " })");
+        return ws.str("(function(", argsDef, ") { var ", argsDef, '; ', argsAssign, " return ", expr, " })");
       }
     }
     else {
@@ -548,7 +593,7 @@ goog.scope(function() {
         return ws.str(cond, ' ( arguments.length ', cmp, ' ', args.length, ' ) { return ', expr, ' }');
       }).concat(['else { throw new Error("wrong number of arguments") }']).join(' ');
 
-      return ws.str('(function recur(){ var ', argsAssign, code, ' })');
+      return ws.str('(function(){ var ', argsAssign, code, ' })');
     }
   }
 
@@ -585,6 +630,8 @@ goog.scope(function() {
       argBuffer.push(value);
     }
   
+    if ( ws.isSymbol(fn) ) fn = ws.escapeChars(fn);
+
     if ( argBuffer.length === 0 ) {
       return ws.str('(', fn, ').apply()');
     }
@@ -601,19 +648,24 @@ goog.scope(function() {
     return ws.str('(', valBuffer.join(op), ')');
   }
 
+  ws.eval(
+      ['define-syntax', 'defmacro',
+        ['fn', ['form'],
+          ['array', '`define-syntax', ['form', 1],
+            ['.concat', ['array', '`fn'], ['.slice', 'form', 2]]]]]);
+
   // boolean aliases
-  ws.eval(['define-syntax', 'on', ['fn', ['form'], '`true']]);
-  ws.eval(['define-syntax', 'yes', ['fn', ['form'], '`true']]);
-  ws.eval(['define-syntax', 'true', ['fn', ['form'], '`true']]);
-  ws.eval(['define-syntax', 'off', ['fn', ['form'], '`false']]);
-  ws.eval(['define-syntax', 'no', ['fn', ['form'], '`false']]);
-  ws.eval(['define-syntax', 'false', ['fn', ['form'], '`false']]);
+  ws.eval(['defmacro', 'on', ['form'], '`true']);
+  ws.eval(['defmacro', 'yes', ['form'], '`true']);
+  ws.eval(['defmacro', 'true', ['form'], '`true']);
+  ws.eval(['defmacro', 'off', ['form'], '`false']);
+  ws.eval(['defmacro', 'no', ['form'], '`false']);
+  ws.eval(['defmacro', 'false', ['form'], '`false']);
 
   // JS aliases
   ws.eval(
-      ['define-syntax', 'function',
-        ['fn', ['form'],
-          ['array', '`fn', ['form', 1], ['form', 2]]]]);
+      ['defmacro', 'function', ['form'],
+          ['array', ['symbol', '`fn'], ['form', 1], ['form', 2]]]);
 
   ws.eval(
       ['define-syntax', 'var',
@@ -646,12 +698,6 @@ goog.scope(function() {
       ['define-syntax', 'defn',
         ['fn', ['form'],
           ['array', '`def', ['form', 1], ['.concat', ['array', '`fn'], ['.slice', 'form', 2]]]]]);
-
-  ws.eval(
-      ['define-syntax', 'defmacro',
-        ['fn', ['form'],
-          ['array', '`define-syntax', ['form', 1],
-            ['.concat', ['array', '`fn'], ['.slice', 'form', 2]]]]]);
 
   // null-safe method resolution
   // (.? object method &args)
@@ -743,6 +789,10 @@ goog.scope(function() {
     return a;
   };
 
+  ws.eval(
+      ['defmacro', 'deftype', ['form'],
+        ['list', ['symbol', '"def"'], ['form', 1],
+          ['.concat', ['list', ['symbol', '"dataType"']], ['.slice', 'form', 2]]]]);
 
   /*
    * TODO: Macros

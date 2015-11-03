@@ -7,20 +7,6 @@ goog.scope(function() {
   var DOC_FIELD_NAME = 'ws$lang$doc';
   var NAME_FIELD_NAME = 'ws$lang$name';
 
-  var hashCode = function(val) {
-    var hash = 0
-      , off = -1
-      , i = 0
-      , len = val.length;
-    
-    if ( hash === 0 ) {
-      for (; i < len; ++i) {
-        hash = 31*hash + val.charCodeAt(++off);
-      }
-    }
-    return hash;
-  };
-
   ws.type = function() {
     var doc, fields, protocol, impl, required = [], f, v;
     if ( arguments.length === 4 ) {
@@ -104,8 +90,10 @@ goog.scope(function() {
       if ( !ctr.prototype[required[i]] ) throw new Error("" + required[i] + " is required");
     }
   
-    return ctr;
+    return Object.freeze(ctr);
   };
+
+  ws.dataType = ws.type;
 
   ws.init = function(ctr, args) {
     var args = [{}].concat(args), i;
@@ -176,7 +164,7 @@ goog.scope(function() {
       }
     }
 
-    return proto;
+    return Object.freeze(proto);
   };
 
   ws.method = function() {
@@ -184,7 +172,6 @@ goog.scope(function() {
   };
   
   ws.isA = function(child, par) {
-    
   };
   
   ws.instanceOf = function(val, klass) {
@@ -194,6 +181,18 @@ goog.scope(function() {
     }
   };
   ws['instance?'] = ws.instanceOf;
+
+  ws.symbol = function(string) {
+    var string  = new String(string);
+    string.type = "symbol";
+    return Object.freeze(string);
+  };
+
+  ws.keyword = function(string) {
+    var string  = new String(string);
+    string.type = "keyword";
+    return Object.freeze(string);
+  };
 
   ws.gcd = function(a, b) {
     if ( a === 0 && b === 0 ) return 0;
@@ -275,7 +274,7 @@ goog.scope(function() {
     else if ( b == null ) return false;
     else if ( a.eq ) return a.eq(b);
     else {
-      return a === b;
+      return ws.hashCode(a) === ws.hashCode(b);
     }
   };
   ws['='] = ws.eq;
@@ -393,6 +392,19 @@ goog.scope(function() {
     }
   });
 
+  ws.object = function() {
+    if ( arguments.length < 2 ) return {};
+    else {
+      var pairs = ws.pair(ws.toArray(arguments))
+        , i = 0
+        , obj = {};
+      for (; i < pairs.length; ++i) {
+        obj[pairs[i][0]] = pairs[i][1];
+      }
+      return obj;
+    }
+  };
+
   ws.objectMap = function() {
     if ( arguments.length === 0 ) return new ws.ObjectMap([]);
     return new ws.ObjectMap(ws.toArray(arguments));
@@ -449,8 +461,8 @@ goog.scope(function() {
     return this.hasOwnProperty(key);
   };
 
-  ws.ObjectMap.prototype.toSource = function() {
-    return ws.str('wonderscript.objectMap(', ws.concat.apply(null, this.entries().map(function(x){ return [JSON.stringify(x[0]), x[1]] })).join(', '), ')');
+  ws.ObjectMap.prototype.hashCode = function() {
+    return ws.hashCode(ws.concat(this.keys(), this.values()));
   };
 
   ws.ObjectMap.prototype.toString = function() {
@@ -605,10 +617,36 @@ goog.scope(function() {
     return val;
   };
 
+
+  function hashCodeString(val) {
+    var hash = 0
+      , off = -1
+      , i = 0
+      , len = val.length;
+    
+    if ( hash === 0 ) {
+      for (; i < len; ++i) {
+        hash = 31*hash + val.charCodeAt(++off);
+      }
+    }
+    return hash;
+  }
+
   ws.hashCode = function(val) {
-    if ( typeof val.hashCode !== 'undefined' ) return val.hashCode();
+    if ( val == null ) return hashCodeString("symbol$null");
+    else if ( typeof val === 'number' && isNaN(val) ) return hashCodeString('symbol$NaN');
+    else if ( typeof val === 'number' ) return val;
+    else if ( typeof val === 'string' ) return hashCodeString(ws.str('string$', val));
+    else if ( val === true ) return hashCodeString('symbol$true');
+    else if ( val === false ) return hashCodeString('symbol$false');
+    else if ( val instanceof Array ) {
+      return ws.reduce(val, function(sum, x){ return sum + ws.hashCode(x) }, 0);
+    }
+    else if ( typeof val === 'object' && val.hashCode ) {
+      return val.hashCode();
+    }
     else {
-      return hashCode(val);
+      throw new Error(ws.str("Don't know how to get a hash code for '", val, "'"));
     }
   };
 
@@ -658,6 +696,12 @@ goog.scope(function() {
       l = l.cons(arguments[i]);
     }
     return l;
+  };
+
+  ws.list = function() {
+    var l = ws.array.apply(null, arguments);
+    l.type = 'list';
+    return Object.freeze(l);
   };
 
   t.IPersistentArrayMap = {}; //ws.protocol("", t.IMapable, t.ISeq);

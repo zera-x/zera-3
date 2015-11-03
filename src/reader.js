@@ -8,7 +8,7 @@ goog.scope(function () {
     string      = new String(string);
     string.type = "keyword";
 
-    return string;
+    return ws.str(':', string);
   }
 
   function symbol (string) {

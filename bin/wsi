@@ -21,7 +21,7 @@ rl.on('line', function(code) {
     eval(ws.map(stack, function(expr){ return ws.emit(expr) }).join(';'));
     var line = ws.read(code.trim());
     var res = eval(ws.emit(line));
-    console.log(ws.pprint(res));
+    console.log(ws.pp(res));
     rl.setPrompt(ws.str(ws.ns(), "> "));
     stack = ws.conj(stack, line);
   }
