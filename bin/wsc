@@ -1,7 +1,20 @@
 #!/usr/bin/env node --harmony
 
 var fs = require('fs')
-  , process = require('process')
-  , wonderscript = require('../dist/wonderscript.js');
+  //, process = require('process')
+  , wonderscript = require('../dist/wonderscript.js')
+  , ws = wonderscript;
 
-console.log(process.argv);
+var file = process.argv[2]
+  , runtime = "";
+
+fs.readFile(ws.str(__dirname, '/../dist/wonderscript.js'), {encoding: 'utf8'}, function(err, data) {
+  if ( err ) throw err;
+  runtime = data;
+  fs.readFile(file, {encoding: 'utf8'}, function(err, data) {
+    if ( err ) throw err;
+    console.log(runtime);
+    console.log(wonderscript.emit(wonderscript.read(ws.str('(do ', data, ')'))));
+  });
+});
+

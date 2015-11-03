@@ -14,19 +14,20 @@ var rl = readline.createInterface({
 rl.setPrompt(ws.str(ws.ns(), "> "));
 rl.prompt();
 
-var env = [];
+var stack = [];
 
 rl.on('line', function(code) {
-  //try {
-    env.push(ws.read(code.trim()));
-    var code = ws.map(function(expr){ return ws.emit(expr) }, env).join(';');
-    var res = eval(code);
+  try {
+    eval(ws.map(stack, function(expr){ return ws.emit(expr) }).join(';'));
+    var line = ws.read(code.trim());
+    var res = eval(ws.emit(line));
     console.log(ws.pprint(res));
     rl.setPrompt(ws.str(ws.ns(), "> "));
-  /*}
+    stack = ws.conj(stack, line);
+  }
   catch (e) {
-    console.error(e);
-  }*/
+    console.error(e.stack);
+  }
   rl.prompt();
 });
 

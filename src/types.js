@@ -268,8 +268,12 @@ goog.scope(function() {
 
   ws.add1 = function(n) { return ws.add(n, 1) };
   ws.sub1 = function(n) { return ws.sub(n, 1) };
+
   ws.eq = function(a, b) {
-    if ( a.eq ) return a.eq(b);
+    if ( a == null && b == null ) return true;
+    else if ( a == null ) return false;
+    else if ( b == null ) return false;
+    else if ( a.eq ) return a.eq(b);
     else {
       return a === b;
     }
@@ -389,6 +393,70 @@ goog.scope(function() {
     }
   });
 
+  ws.objectMap = function() {
+    if ( arguments.length === 0 ) return new ws.ObjectMap([]);
+    return new ws.ObjectMap(ws.toArray(arguments));
+  };
+
+  ws.ObjectMap = function(rep) {
+    var pairs = ws.pair(rep)
+      , i = 0;
+    for (; i < pairs.length; ++i) {
+      this[pairs[i][0]] = pairs[i][1];
+    }
+    Object.freeze(this);
+  }
+
+  ws.ObjectMap.prototype.get = function(key) {
+    return this[key];
+  };
+
+  ws.ObjectMap.prototype.apply = function(self, args) {
+    return this[args[0]];
+  };
+
+  ws.ObjectMap.prototype.keys = function() {
+    return Object.keys(this);
+  };
+
+  ws.ObjectMap.prototype.values = function() {
+    return this.entries().map(function(x){ return x[1] });
+  };
+
+  ws.ObjectMap.prototype.entries = function() {
+    var a = [], i, keys = this.keys();
+    for (i = 0; i < keys.length; ++i) {
+      if ( this.has(keys[i]) ) a.push([keys[i], this.get(keys[i])]);
+    }
+    return a;
+  };
+
+  ws.ObjectMap.prototype.assoc = function(key, value) {
+    var rep = ws.concat.apply(null, this.entries().concat([[key, value]]));
+    return new ws.ObjectMap(rep);
+  };
+  
+  ws.ObjectMap.prototype.merge = function(other) {
+    var entries = this.entries(), k;
+    if ( other.entries ) entries = entries.concat(other.entries());
+    else {
+      for ( k in other ) entries.push([k, other[k]]);
+    }
+    return new ws.ObjectMap(ws.concat.apply(null, entries));
+  };
+
+  ws.ObjectMap.prototype.has = function(key) {
+    return this.hasOwnProperty(key);
+  };
+
+  ws.ObjectMap.prototype.toSource = function() {
+    return ws.str('wonderscript.objectMap(', ws.concat.apply(null, this.entries().map(function(x){ return [JSON.stringify(x[0]), x[1]] })).join(', '), ')');
+  };
+
+  ws.ObjectMap.prototype.toString = function() {
+    return ws.str('{', ws.concat.apply(null, this.entries().map(function(x){ return [JSON.stringify(x[0]), x[1]] })).join(', '), '}');
+  };
+
   ws.get = function(m, k) { return m.get(k) };
   ws.has = function(m, k) { return m.has(k) };
   ws.keys = function(m) { return m.keys() };
@@ -465,7 +533,9 @@ goog.scope(function() {
   };
 
   ws.concat = function(a, b) {
-    if ( arguments.length === 2 ) return a.concat(b)
+    if ( arguments.length === 0 ) return [];
+    else if ( arguments.length === 1 ) return a;
+    else if ( arguments.length === 2 ) return a.concat(b)
     else if ( arguments.length > 2 ) {
       var args = ws.cons(a.concat(b), ws.drop(ws.toArray(arguments), 2));
       return ws.concat.apply(null, args);

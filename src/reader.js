@@ -5,15 +5,15 @@ goog.scope(function () {
   var ws = wonderscript;
 
   function keyword (string) {
-    //string      = new String(string);
-    //string.type = "keyword";
+    string      = new String(string);
+    string.type = "keyword";
 
     return string;
   }
 
   function symbol (string) {
-    //string      = new String(string);
-    //string.type = "symbol";
+    string      = new String(string);
+    string.type = "symbol";
 
     return string;
   }
@@ -26,6 +26,10 @@ goog.scope(function () {
     array.type = "vector";
 
     return array;
+  }
+
+  function map (array) {
+    return new ws.ObjectMap(array);
   }
 
   function list (array) {
@@ -325,16 +329,12 @@ goog.scope(function () {
     }
 
     function is_ignored (ch) {
-      return ch == null ||
-             ch === ' ' ||
-             ch === ',' ||
-             ch === '\t' ||
-             ch === '\n' ||
-             typeof ch === 'undefined';
+      return ch == null || /[\s,]/.test(ch);
     }
 
     function is_symbol (ch) {
-      return /^[a-zA-Z0-9\+\!\-\_\?\.\:\*\/]$/.test(ch);
+      // TODO: think about what to do with trailing ':' on symbols, will just let them slide for now
+      return /^[a-zA-Z0-9\+\!\-\_\?\.\:\*\/\<\=\%\$\@\~\|\\]$/.test(ch);
     }
 
     function is_both_separator (ch) {
@@ -435,7 +435,6 @@ goog.scope(function () {
     c.prototype.next_type = function () {
       var current = this.current();
 
-      //if (current === '-' || current === '+' || 
       if (!isNaN(parseInt(current))) {
         return "number";
       }
@@ -463,11 +462,12 @@ goog.scope(function () {
       return "symbol";
     }
 
-    c.prototype.read_next = function () {
+    c.prototype.read_next = function() {
       this.ignore();
 
       if (this.eof()) {
-        throw new SyntaxError('unexpected EOF');
+        //if ( typeof this.current() === 'undefined' ) return null;
+        throw new SyntaxError(ws.str('unexpected EOF, at: "', typeof(this.current()), '" ', this.position, ' of: "', this.string, '"'));
       }
 
       var type   = this.next_type(),
@@ -475,13 +475,13 @@ goog.scope(function () {
 
       //console.log('type:', type);
       //console.log('result:', result);
-      /*if ((type === "nil" || type === "boolean") && result instanceof String) {
+      if ((type === "nil" || type === "boolean") && result instanceof String) {
         type = "symbol";
-      }*/
+      }
 
-      /*if (type !== "map" && result != null) {
+      if (type !== "map" && result != null) {
         result.type = type;
-      }*/
+      }
 
       return result;
     }
@@ -579,7 +579,7 @@ goog.scope(function () {
     c.prototype.read_keyword = function () {
       var length = 0;
 
-      //this.seek(1);
+      this.seek(1);
 
       while (!is_keyword_separator(this.after(length))) {
         length++;
@@ -697,9 +697,9 @@ goog.scope(function () {
     }
 
     c.prototype.read_map = function () {
-      var result = {};
+      var result = [];
 
-      this.seek(1); this.ignore();
+      this.seek(1); this.ignore(); // ignore '{'
 
       while (this.current() != '}') {
         var key = this.read_next();
@@ -707,12 +707,13 @@ goog.scope(function () {
         var value = this.read_next();
         this.ignore();
 
-        result[key] = value;
+        result.push(key);
+        result.push(value);
       }
 
-      this.seek(1)
+      this.seek(1);
 
-      return result;
+      return map(result);
     }
 
     c.prototype.parse = function () {
@@ -721,7 +722,7 @@ goog.scope(function () {
       this.ignore();
 
       if (this.current()) {
-        throw new SyntaxError("there is some unconsumed input");
+        throw new SyntaxError(ws.str("there is some unconsumed input at: ", this.position, ' for: "', this.string, '"'));
       }
 
       return result;
