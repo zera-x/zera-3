@@ -141,6 +141,15 @@ goog.scope(function() {
     return memo;
   };
 
+  ws.reduceRight = function(a, fn, memo) {
+    var i, init = (a.length - 1);
+    for (i = init; i >= 0; --i) {
+      if ( typeof memo === 'undefined' && i === init ) memo = a[i];
+      else memo = fn.call(null, memo, a[i]);
+    }
+    return memo;
+  };
+
   // Array -> JsValue
   ws.min = function(a) {
     return ws.reduce(a, function(memo, n) {
