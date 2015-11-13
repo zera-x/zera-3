@@ -3,3 +3,4 @@ dist/
 node_modules/
 .nrepl-history
 vendor/
+examples/*.js

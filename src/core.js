@@ -141,6 +141,15 @@ goog.scope(function() {
     return memo;
   };
 
+  ws.reduceRight = function(a, fn, memo) {
+    var i, init = (a.length - 1);
+    for (i = init; i >= 0; --i) {
+      if ( typeof memo === 'undefined' && i === init ) memo = a[i];
+      else memo = fn.call(null, memo, a[i]);
+    }
+    return memo;
+  };
+
   // Array -> JsValue
   ws.min = function(a) {
     return ws.reduce(a, function(memo, n) {
@@ -174,6 +183,14 @@ goog.scope(function() {
     var newA = [], k;
     for ( k in set ) newA.push(k);
     return newA;
+  };
+
+  ws.doWhile = function(pred, fn) {
+    var res;
+    while (pred()) {
+      res = fn();
+    }
+    return res;
   };
 
   // Object -> String -> JsValue -> Object
@@ -332,6 +349,7 @@ goog.scope(function() {
                 form.entries().map(function(x){ return [ws.emit(x[0]), ws.emit(x[1])] })).join(', '), ')');
     }
     else if ( form instanceof Array && (!form.type || form.type === 'list') ) {
+      if ( form[0] == null ) throw new Error("Invalid form:", form);
       switch(form[0].toString()) {
         case 'use':
           if ( form[1] ) ws.__CURRENT_NAMESPACE__ = form[1];
@@ -347,7 +365,7 @@ goog.scope(function() {
         case 'type':
           return ws.str('typeof ', ws.emit(form[1]));
         case 'js':
-          return form[1];
+          return form[1].replace(/^"/, '').replace(/"$/, '').replace(/\\n/, '');
         case 'def':
           return emitDef(form, env, opts);
         case 'fn':
@@ -516,7 +534,7 @@ goog.scope(function() {
 
   function emitAssignment(form, env, opts) {
     var name = form[1]; // TODO: do something to permit lispy naming
-    return ws.str(ws.escapeChars(name), " = ", ws.emit(form[2], env), ";");
+    return ws.str(ws.escapeChars(name), " = ", ws.emit(form[2], env));
   }
 
   function parseArgs(args) {
@@ -603,7 +621,16 @@ goog.scope(function() {
     for (i = 0; i < exprs.length; ++i) {
       buf.push(ws.emit(exprs[i]));
     }
-    return ws.str("(function(){", buf.slice(0, buf.length-1).join('; '), '; return ', buf[buf.length-1], "; }())");
+
+    if ( exprs.length === 1 ) {
+      return ws.str("(function(){ return ", buf[0], "; }())");
+    }
+    else if ( exprs.length === 0 ) {
+      return ws.str("(function(){}())");
+    }
+    else {
+      return ws.str("(function(){", buf.slice(0, buf.length-1).join('; '), '; return ', buf[buf.length-1], "; }())");
+    }
   }
 
   function emitObjectRes(form) {
@@ -792,6 +819,25 @@ goog.scope(function() {
       ['defmacro', 'deftype', ['form'],
         ['list', ['symbol', '"def"'], ['form', 1],
           ['.concat', ['list', ['symbol', '"dataType"']], ['.slice', 'form', 2]]]]);
+
+  ws.eval(
+      ['defmacro', 'defprotocol', ['form'],
+        ['list', ['symbol', '"def"'], ['form', 1],
+          ['.concat', ['list', ['symbol', '"protocol"']], ['.slice', 'form', 2]]]]);
+
+  ws.eval(
+      ['defmacro', 'while', ['form'],
+        ['list', ['symbol', '"doWhile"'],
+          ['list', ['symbol', '"fn"'], ['list'], ['form', 1]],
+          ['list', ['symbol', '"fn"'], ['list'], ['form', 2]]]]);
+
+  ws.eval(
+      ['defmacro', 'until', ['form'],
+        ['list', ['symbol', '"doWhile"'],
+          ['list', ['symbol', '"fn"'], ['list'],
+            ['list', ['symbol', '"not"'], ['form', 1]]],
+          ['list', ['symbol', '"fn"'], ['list'],
+            ['.concat', ['list', ['symbol', '"do"']], ['.slice', 'form', 2]]]]]);
 
   /*
    * TODO: Macros
