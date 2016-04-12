@@ -1,3 +1,4 @@
+/* global goog */
 goog.provide('wonderscript');
 goog.provide('wonderscript.helpers');
 goog.require('wonderscript.types');
