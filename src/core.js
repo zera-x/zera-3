@@ -74,7 +74,7 @@ goog.scope(function() {
   };
   
   // [Object] -> String
-  ws.str = function() {
+  ws.str = function () {
     if ( arguments.length === 0 ) return "";
     else if ( arguments.length === 1 ) return ""+arguments[0];
     else {
@@ -87,7 +87,7 @@ goog.scope(function() {
   };
 
   // Array -> Array
-  ws.pair = function(a) {
+  ws.pair = function (a) {
     var i, pairs = [], pair = [];
     for (i = 0; i < a.length; ++i) {
       if ( i % 2 === 0 ) {
@@ -103,7 +103,7 @@ goog.scope(function() {
   };
 
   // Array -> Function -> Array
-  ws.map = function(a, fn) {
+  ws.map = function (a, fn) {
     var newA = [], i;
     for (i = 0; i < a.length; ++i) {
       newA.push(fn.call(null, a[i], i));
@@ -112,7 +112,7 @@ goog.scope(function() {
   };
   
   // Array -> Function -> Array
-  ws.mapcat = function(a, fn) {
+  ws.mapcat = function (a, fn) {
     var a = ws.map(a, fn)
       , newA = []
       , i;
@@ -123,7 +123,7 @@ goog.scope(function() {
   };
 
   // Array -> Function -> Array
-  ws.filter = function(a, fn) {
+  ws.filter = function (a, fn) {
     var i, newA = [];
     for (i = 0; i < a.length; ++i) {
       if ( fn.call(null, a[i], i) ) newA.push(a[i]);
@@ -133,7 +133,7 @@ goog.scope(function() {
 
   // Array -> Function -> JsValue
   // Array -> Function -> JsValue -> JsValue
-  ws.reduce = function(a, fn, memo) {
+  ws.reduce = function (a, fn, memo) {
     var i;
     for (i = 0; i < a.length; ++i) {
       if ( typeof memo === 'undefined' && i === 0 ) memo = a[i];
@@ -141,8 +141,9 @@ goog.scope(function() {
     }
     return memo;
   };
+  ws.foldl = ws.reduce;
 
-  ws.reduceRight = function(a, fn, memo) {
+  ws.reduceRight = function (a, fn, memo) {
     var i, init = (a.length - 1);
     for (i = init; i >= 0; --i) {
       if ( typeof memo === 'undefined' && i === init ) memo = a[i];
@@ -150,28 +151,29 @@ goog.scope(function() {
     }
     return memo;
   };
+  ws.foldr = ws.reduceRight;
 
   // Array -> JsValue
-  ws.min = function(a) {
+  ws.min = function (a) {
     return ws.reduce(a, function(memo, n) {
       return memo < n ? memo : n;
     });
   };
 
   // Array -> JsValue
-  ws.max = function(a) {
+  ws.max = function (a) {
     return ws.reduce(a, function(memo, n) {
       return memo > n ? memo : n;
     });
   };
 
   // Array -> Function -> Boolean
-  ws.any = function(a, fn) {
+  ws.any = function (a, fn) {
     return ws.filter(a, fn).length !== 0;
   };
 
   // Array -> Array
-  ws.uniq = function(a) {
+  ws.uniq = function (a) {
     var set = ws.reduce(a, function(memo, n) {
       var o = {};
       if ( !memo[n] ) {
@@ -186,7 +188,7 @@ goog.scope(function() {
     return newA;
   };
 
-  ws.doWhile = function(pred, fn) {
+  ws.doWhile = function (pred, fn) {
     var res;
     while (pred()) {
       res = fn();
@@ -195,7 +197,7 @@ goog.scope(function() {
   };
 
   // Object -> String -> JsValue -> Object
-  ws.assoc = function(obj, key, value) {
+  ws.assoc = function (obj, key, value) {
     var newObj = {}, k;
     for (k in obj) {
       newObj[k] = obj[k];
@@ -205,7 +207,7 @@ goog.scope(function() {
   };
   
   // Object -> Object
-  ws.merge = function(o1, o2) {
+  ws.merge = function (o1, o2) {
     var o = {}, k;
     for ( k in o1 ) o[k] = o1[k];
     for ( k in o2 ) o[k] = o2[k];
@@ -215,7 +217,7 @@ goog.scope(function() {
   // API
   // ===
   
-  Array.prototype.apply = function(that, args) {
+  Array.prototype.apply = function (that, args) {
     var args = args || [];
     return this[args[0]];
   };
@@ -223,7 +225,7 @@ goog.scope(function() {
   ws.read = ws.edn.read;
 
   // JsValue -> JsValue
-  ws.eval = function(form) {
+  ws.eval = function (form) {
     return eval(ws.emit(form));
   };
 
@@ -318,8 +320,9 @@ goog.scope(function() {
   };
 
   // JsValue -> String
-  ws.emit = function(form) {
-    var value, i, key, env = env || ws, opts = opts || {}, form = form;
+  ws.emit = function(syn) {
+    var value, i, key, env = env || ws, opts = opts || {};
+    var form = syn.form ? syn.form : syn;
     if ( ws.isMacro(form) ) form = ws.macroexpand(form);
     if ( typeof form === 'string' || form instanceof String ) {
       if ( /^(:|'|`)/.test(form) || form.type == 'keyword' ) return JSON.stringify(form.replace(/^(:|'|`)/, ''));

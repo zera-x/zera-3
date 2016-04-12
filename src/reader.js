@@ -384,6 +384,7 @@ goog.scope(function () {
       this.options  = options || {};
       this.string   = string
       this.position = 0;
+      this.line = 1;
     }
 
     c.isSymbol = is_symbol;
@@ -429,6 +430,8 @@ goog.scope(function () {
         this.seek(1);
 
         current = this.string[this.position];
+
+        if ( current === '\n' ) this.line++;
       }
     }
 
@@ -505,7 +508,7 @@ goog.scope(function () {
 
       this.seek(3);
 
-      return null;
+      return ws.syntax(null, 'nil', this.line);
     }
 
     c.prototype.read_boolean = function () {
@@ -516,7 +519,7 @@ goog.scope(function () {
 
         this.seek(4);
 
-        return true;
+        return ws.syntax(true, 'boolean', this.line);
       }
       else {
         if (this.remaining_length() < 5 || !this.start_with("false") || !is_both_separator(this.after(5))) {
@@ -525,7 +528,7 @@ goog.scope(function () {
 
         this.seek(5);
 
-        return false;
+        return ws.syntax(false, 'boolean', this.line);
       }
     }
 
@@ -541,20 +544,20 @@ goog.scope(function () {
       this.seek(length);
 
       if (string.indexOf('/') != -1) {
-        return rational(string);
+        return ws.syntax(rational(string), 'rational', this.line);
       }
       else if (string.indexOf('r') != -1 || string.indexOf('R') != -1) {
         var parts = string.toLowerCase().split('r')
         var base  = parts.shift();
 
-        return parseInt(parts.join('r'), base);
+        return ws.syntax(parseInt(parts.join('r'), base), 'integer', this.line);
       }
       else {
         if (string[string.length - 1] == 'N' || string[string.length - 1] == 'M') {
           string = string.substr(0, string.length - 1);
         }
 
-        return parseFloat(string);
+        return ws.syntax(parseFloat(string), 'float', this.line);
       }
     }
 
@@ -573,7 +576,7 @@ goog.scope(function () {
 
       this.seek(length);
 
-      return symbol(string);
+      return ws.syntax(symbol(string), 'symbol', this.line);
     }
 
     c.prototype.read_keyword = function () {
@@ -589,7 +592,7 @@ goog.scope(function () {
 
       this.seek(length);
 
-      return keyword(string);
+      return ws.syntax(keyword(string), 'keyword', this.line);
     }
 
     c.prototype.read_string = function () {
@@ -609,7 +612,7 @@ goog.scope(function () {
 
       this.seek(length + 1);
 
-      return JSON.stringify(unescape(string));
+      return ws.syntax(JSON.stringify(unescape(string)), 'string', this.line);
     }
 
     c.prototype.read_regexp = function () {
@@ -629,7 +632,7 @@ goog.scope(function () {
 
       this.seek(length + 1);
 
-      return new RegExp(string);
+      return ws.syntax(new RegExp(string), 'regex', this.line);
     }
 
     c.prototype.read_instant = function () {
@@ -645,7 +648,7 @@ goog.scope(function () {
 
       this.seek(4); this.ignore();
 
-      return rfc3339(this.read_string());
+      return ws.syntax(rfc3339(this.read_string()), 'instant', this.line);
     }
 
     c.prototype.read_list = function () {
@@ -661,7 +664,7 @@ goog.scope(function () {
 
       this.seek(1)
 
-      return list(result);
+      return ws.syntax(list(result), 'list', this.line);
     }
 
     c.prototype.read_set = function () {
@@ -677,7 +680,7 @@ goog.scope(function () {
 
       this.seek(1)
 
-      return set(result);
+      return ws.syntax(set(result), 'set', this.line);
     }
 
     c.prototype.read_vector = function () {
@@ -693,7 +696,7 @@ goog.scope(function () {
 
       this.seek(1)
 
-      return vector(result);
+      return ws.syntax(vector(result), 'vector', this.line);
     }
 
     c.prototype.read_map = function () {
@@ -713,7 +716,7 @@ goog.scope(function () {
 
       this.seek(1);
 
-      return map(result);
+      return ws.syntax(map(result), 'map', this.line);
     }
 
     c.prototype.parse = function () {

@@ -4,8 +4,8 @@ goog.scope(function() {
 
   var ws = wonderscript;
   var t = wonderscript.types;
-  var DOC_FIELD_NAME = 'ws$lang$doc';
-  var NAME_FIELD_NAME = 'ws$lang$name';
+  var DOC_FIELD_NAME = '@@doc';
+  var NAME_FIELD_NAME = '@@name';
 
   ws.type = function() {
     var doc, fields, protocol, impl, required = [], f, v;
@@ -54,7 +54,7 @@ goog.scope(function() {
       }
     };
 
-    if ( doc ) ctr.$wonderscript$doc = doc;
+    if ( doc ) ctr[DOC_FIELD_NAME] = doc;
   
     if ( protocol ) {
       for ( f in protocol ) {
@@ -278,6 +278,14 @@ goog.scope(function() {
     }
   };
   ws['='] = ws.eq;
+
+  ws.Syntax = ws.type(
+    "A syntax object",
+    ['form', 'tag', 'line']);
+
+  ws.syntax = function (form, tag, line) {
+    return new ws.Syntax(form, tag, line);
+  };
 
   ws.Rat = ws.type(
     "An implementation of a rational numeric type",

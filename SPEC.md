@@ -3,9 +3,6 @@ WonderScript
 
 A code-as-data language with a (subset of) JavaScript semantics, emphasizing it's functional aspects.
 
-See
-http://ki-lang.org
-
 Data Types
 ==========
 
@@ -64,7 +61,9 @@ Special Forms
 Definitions
 -----------
 
-    (var NAME EXPRESSION)
+    (var NAME EXP)
+
+    (const NAME EXP)
 
 Quotation
 ---------
@@ -85,14 +84,20 @@ where P1-PN are predicate expressions, C1-CN corresponding consequential express
 Functions
 ---------
 
-    (function ARGUMENTS BODY)
+    (function ARGS BODY)
 
 or
 
-    (function ARITY1 BODY1
-              ARITY2 BODY2
-              ...
-              ARITYN BODYN)
+    (function NAME ARGS BODY)
+
+or (a macro)
+
+    (fn ARGS BODY)
+
+    (fn ARITY1 BODY1
+        ARITY2 BODY2
+        ...
+        ARITYN BODYN)
 
 
 Function Application
