@@ -1,4 +1,16 @@
+<body></body>
+<script src="../node_modules/jquery/dist/jquery.js" type="text/javascript"></script>
+<script src="../node_modules/underscore/underscore.js" type="text/javascript"></script>
+<script src="../node_modules/underscore-contrib/dist/underscore-contrib.js" type="text/javascript"></script>
 <script src="../dist/wonderscript.js" type="text/javascript"></script>
 <script type="text/javascript">
-  var ws = wonderscript;
+  var ws = wonderscript
+      pb = peanutbutter;
+
+  pb.html.appendTo('body', [['a', {href: '#', onclick: ['alert', '"This is a test"']}, "Test me"], ['br']]);
+  pb.html.appendTo('body', [['a', {href: '#', onclick: ['cond', true, ['alert', '"This is a test"'],
+                                                                false, ['alert', '"Not sure what this means"']]}, "Test me"], ['br']]);
+  pb.html.appendTo('body', [['a', {href: '#', onclick: ['do',
+                                                         ['defn', 'say', ['msg'], ['alert', 'msg']],
+                                                         ['say', '"This is a test"']]}, "Test me"], ['br']]);
 </script>
